@@ -11,6 +11,7 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
         token['username'] = user.username
         token['is_superuser'] = user.is_superuser
         token['is_staff'] = user.is_staff
+        token['role'] = user.profile.role  # <-- Nuevo
         return token
 
 # --- Serializador para Registro de Usuarios ---
@@ -60,44 +61,45 @@ class RegisterSerializer(serializers.ModelSerializer):
 
         return user
 
-# --- Serializador para Perfil de Usuario (con actualización) ---
 class ProfileSerializer(serializers.ModelSerializer):
-    id = serializers.IntegerField(source='user.id', read_only=True)  # <--- Agregado
+    id = serializers.IntegerField(source='user.id', read_only=True)
     username = serializers.CharField(source='user.username', read_only=True)
     email = serializers.EmailField(source='user.email')
 
     class Meta:
         model = Profile
-        fields = ['id', 'username', 'email', 'avatar', 'nombre', 'apellidos', 'rut', 'numero_personal', 'numero_emergencia']
+        fields = ['id', 'username', 'email', 'avatar', 'nombre', 'apellidos', 
+                  'rut', 'numero_personal', 'numero_emergencia', 'role']
         read_only_fields = ['rut', 'username']
 
     def update(self, instance, validated_data):
         user_data = validated_data.pop('user', {})
         email = user_data.get('email')
+        role = validated_data.get('role', instance.role)
 
         instance.nombre = validated_data.get('nombre', instance.nombre)
         instance.apellidos = validated_data.get('apellidos', instance.apellidos)
         instance.numero_personal = validated_data.get('numero_personal', instance.numero_personal)
         instance.numero_emergencia = validated_data.get('numero_emergencia', instance.numero_emergencia)
-        
+        instance.role = role
         if 'avatar' in validated_data:
              instance.avatar = validated_data['avatar']
-
         instance.save()
 
+        # Actualizamos is_staff y is_superuser según role
         user = instance.user
-        user_changed = False
+        if role == 'admin':
+            user.is_staff = True
+            user.is_superuser = True
+        elif role == 'contadora':
+            user.is_staff = True
+            user.is_superuser = False
+        else:  # cliente
+            user.is_staff = False
+            user.is_superuser = False
         if email and user.email != email:
             user.email = email
-            user_changed = True
-        if instance.nombre and user.first_name != instance.nombre:
-            user.first_name = instance.nombre
-            user_changed = True
-        if instance.apellidos and user.last_name != instance.apellidos:
-            user.last_name = instance.apellidos
-            user_changed = True
-        if user_changed:
-            user.save()
+        user.save()
 
         return instance
 

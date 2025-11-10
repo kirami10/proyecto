@@ -68,7 +68,6 @@ class UserAdminViewSet(viewsets.ModelViewSet):
     serializer_class = ProfileSerializer
     permission_classes = [IsAuthenticated]
 
-    # Sobrescribir list para incluir is_active
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
         serializer = self.get_serializer(queryset, many=True)
@@ -78,12 +77,10 @@ class UserAdminViewSet(viewsets.ModelViewSet):
             data.append(ser_data)
         return Response(data)
 
-    # Sobrescribir get_object para que tome pk correctamente
     def get_object(self):
         user_id = self.kwargs.get('pk')
         return get_object_or_404(Profile, user__id=user_id)
 
-    # Sobrescribir update para actualizar tanto profile como is_active
     def update(self, request, *args, **kwargs):
         profile = self.get_object()
 
@@ -93,13 +90,27 @@ class UserAdminViewSet(viewsets.ModelViewSet):
             profile.user.is_active = is_active
             profile.user.save()
 
-        # Actualizar otros campos del profile
+        # Actualizar role si viene en request
+        role = request.data.get('role')
+        if role:
+            profile.role = role
+            # Actualizamos is_staff/is_superuser según role
+            if role == 'admin':
+                profile.user.is_staff = True
+                profile.user.is_superuser = True
+            elif role == 'contadora':
+                profile.user.is_staff = True
+                profile.user.is_superuser = False
+            else:  # cliente
+                profile.user.is_staff = False
+                profile.user.is_superuser = False
+            profile.user.save()
+            profile.save()
+
         serializer = self.get_serializer(profile, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
 
-        # Agregar estado actualizado en la respuesta
         response_data = serializer.data
         response_data['activo'] = profile.user.is_active
-
         return Response(response_data)

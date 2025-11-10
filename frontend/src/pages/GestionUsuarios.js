@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import API_URL from "../api";
 
 function GestionUsuarios() {
@@ -10,29 +10,30 @@ function GestionUsuarios() {
   const [numeroPersonal, setNumeroPersonal] = useState("");
   const [numeroEmergencia, setNumeroEmergencia] = useState("");
   const [activo, setActivo] = useState(true);
+  const [role, setRole] = useState("cliente");
 
   const token = localStorage.getItem("token");
 
-  // --- fetchUsuarios con useCallback para no disparar warning ---
-  const fetchUsuarios = useCallback(async () => {
-    try {
-      const response = await fetch(`${API_URL}/usuarios/`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setUsuarios(data);
-      } else {
-        console.error("Error al traer usuarios:", response.status);
-      }
-    } catch (error) {
-      console.error("Error de red:", error);
-    }
-  }, [token]);
-
+  // --- fetchUsuarios dentro de useEffect para evitar warning ESLint ---
   useEffect(() => {
+    const fetchUsuarios = async () => {
+      try {
+        const response = await fetch(`${API_URL}/usuarios/`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setUsuarios(data);
+        } else {
+          console.error("Error al traer usuarios:", response.status);
+        }
+      } catch (error) {
+        console.error("Error de red:", error);
+      }
+    };
+
     fetchUsuarios();
-  }, [fetchUsuarios]);
+  }, [token]);
 
   const handleEdit = (user) => {
     setEditingUser(user);
@@ -41,7 +42,8 @@ function GestionUsuarios() {
     setEmail(user.email || "");
     setNumeroPersonal(user.numero_personal || "");
     setNumeroEmergencia(user.numero_emergencia || "");
-    setActivo(user.activo); // Cargar estado actual
+    setActivo(user.activo);
+    setRole(user.role || "cliente");
   };
 
   const handleCancel = () => {
@@ -52,6 +54,7 @@ function GestionUsuarios() {
     setNumeroPersonal("");
     setNumeroEmergencia("");
     setActivo(true);
+    setRole("cliente");
   };
 
   const handleSubmit = async (e) => {
@@ -64,7 +67,8 @@ function GestionUsuarios() {
       email,
       numero_personal: numeroPersonal,
       numero_emergencia: numeroEmergencia,
-      is_active: activo, // Enviar al backend
+      is_active: activo,
+      role: role,
     };
 
     try {
@@ -77,7 +81,11 @@ function GestionUsuarios() {
         body: JSON.stringify(payload),
       });
       if (response.ok) {
-        fetchUsuarios();
+        // Refresca usuarios y cierra formulario
+        const updatedUser = await response.json();
+        setUsuarios((prev) =>
+          prev.map((u) => (u.id === updatedUser.id ? updatedUser : u))
+        );
         handleCancel();
       } else {
         console.error("Error al actualizar usuario:", response.status);
@@ -94,7 +102,9 @@ function GestionUsuarios() {
       {/* --- Formulario de edición --- */}
       {editingUser && (
         <div className="bg-neutral-900 p-6 rounded-xl shadow-lg border border-neutral-800 mb-8 max-w-3xl mx-auto">
-          <h2 className="text-xl font-semibold mb-4">Editar Usuario: {editingUser.username}</h2>
+          <h2 className="text-xl font-semibold mb-4">
+            Editar Usuario: {editingUser.username}
+          </h2>
           <form className="grid grid-cols-1 md:grid-cols-2 gap-4" onSubmit={handleSubmit}>
             <input
               placeholder="Nombre"
@@ -130,8 +140,8 @@ function GestionUsuarios() {
               className="p-2 rounded bg-neutral-800 border border-neutral-700"
             />
 
-            {/* Checkbox para activar/desactivar */}
-            <div className="md:col-span-2 flex items-center gap-2">
+            {/* Checkbox para activo */}
+            <div className="flex items-center gap-2">
               <input
                 type="checkbox"
                 checked={activo}
@@ -139,6 +149,21 @@ function GestionUsuarios() {
                 id="activo"
               />
               <label htmlFor="activo">Activo</label>
+            </div>
+
+            {/* Select para rol */}
+            <div className="md:col-span-2">
+              <label htmlFor="role">Rol</label>
+              <select
+                id="role"
+                value={role}
+                onChange={(e) => setRole(e.target.value)}
+                className="p-2 rounded bg-neutral-800 border border-neutral-700 w-full"
+              >
+                <option value="cliente">Cliente</option>
+                <option value="admin">Administrador</option>
+                <option value="contadora">Contadora</option>
+              </select>
             </div>
 
             <div className="md:col-span-2 flex gap-2 mt-2">
@@ -169,16 +194,21 @@ function GestionUsuarios() {
               <th className="p-4 font-medium">Nombre</th>
               <th className="p-4 font-medium">Email</th>
               <th className="p-4 font-medium text-center">Activo</th>
+              <th className="p-4 font-medium text-center">Rol</th>
               <th className="p-4 font-medium text-right">Acciones</th>
             </tr>
           </thead>
           <tbody>
             {usuarios.map((user) => (
-              <tr key={user.id} className="border-b border-neutral-800 hover:bg-neutral-800/30 transition">
+              <tr
+                key={user.id}
+                className="border-b border-neutral-800 hover:bg-neutral-800/30 transition"
+              >
                 <td className="p-4">{user.username}</td>
                 <td className="p-4">{user.nombre} {user.apellidos}</td>
                 <td className="p-4">{user.email}</td>
                 <td className="p-4 text-center">{user.activo ? "Sí" : "No"}</td>
+                <td className="p-4 text-center">{user.role}</td>
                 <td className="p-4 text-right flex gap-2 justify-end">
                   <button
                     onClick={() => handleEdit(user)}
@@ -191,7 +221,7 @@ function GestionUsuarios() {
             ))}
             {usuarios.length === 0 && (
               <tr>
-                <td colSpan="5" className="text-center text-neutral-500 py-4">
+                <td colSpan="6" className="text-center text-neutral-500 py-4">
                   No hay usuarios registrados
                 </td>
               </tr>
