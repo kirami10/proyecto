@@ -5,8 +5,8 @@ from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnl
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser # <--- IMPORTANTE: Agregado JSONParser
 from rest_framework_simplejwt.views import TokenObtainPairView
 from django.contrib.auth.models import User
-from .models import Profile, Producto
-from .serializers import RegisterSerializer, ProfileSerializer, MyTokenObtainPairSerializer, ProductoSerializer
+from .models import Profile, Producto, Plan
+from .serializers import RegisterSerializer, ProfileSerializer, MyTokenObtainPairSerializer, ProductoSerializer, PlanSerializer
 
 # Vista personalizada para obtener Token JWT
 class MyTokenObtainPairView(TokenObtainPairView):
@@ -114,3 +114,15 @@ class UserAdminViewSet(viewsets.ModelViewSet):
         response_data = serializer.data
         response_data['activo'] = profile.user.is_active
         return Response(response_data)
+    
+class PlanViewSet(viewsets.ModelViewSet):
+    queryset = Plan.objects.all()
+    serializer_class = PlanSerializer
+
+    # Solo admin puede crear, actualizar o eliminar
+    def get_permissions(self):
+        if self.action in ['list', 'retrieve']:
+            permission_classes = [IsAuthenticatedOrReadOnly]
+        else:
+            permission_classes = [IsAdminUser]
+        return [permission() for permission in permission_classes]

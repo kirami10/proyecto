@@ -9,7 +9,7 @@ function Navbar({ token, onLogout, role }) {
       </div>
 
       <div className="flex items-center gap-6">
-        {/* Botón Gestión Usuarios solo para dueño (admin) */}
+        {/* Gestión de Usuarios solo para admin */}
         {token && role === "admin" && (
           <Link
             to="/gestion-usuarios"
@@ -23,7 +23,7 @@ function Navbar({ token, onLogout, role }) {
           </Link>
         )}
 
-        {/* Botón Publicar producto (admin y staff) */}
+        {/* Publicar producto solo para admin o staff */}
         {token && (role === "admin" || role === "staff") && (
           <Link
             to="/publicar-producto"
@@ -33,6 +33,20 @@ function Navbar({ token, onLogout, role }) {
               <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
             </svg>
             <span className="hidden sm:inline">Publicar Producto</span>
+          </Link>
+        )}
+
+        {/* Gestión de Planes solo para admin */}
+        {token && role === "admin" && (
+          <Link
+            to="/gestion-planes"
+            className="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg transition font-medium flex items-center gap-2 shadow-sm hover:shadow-yellow-900/50"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h10a2 2 0 002-2V5a2 2 0 00-2-2H5z" />
+              <path fillRule="evenodd" d="M3 11a2 2 0 012-2h10a2 2 0 012 2v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4z" clipRule="evenodd" />
+            </svg>
+            <span className="hidden sm:inline">Gestión Planes</span>
           </Link>
         )}
 

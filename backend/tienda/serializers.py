@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth.models import User
-from .models import Profile, Producto
+from .models import Profile, Producto, Plan
 
 # --- Serializador para Token JWT (con roles) ---
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
@@ -11,7 +11,15 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
         token['username'] = user.username
         token['is_superuser'] = user.is_superuser
         token['is_staff'] = user.is_staff
-        token['role'] = user.profile.role  # <-- Nuevo
+
+        # Aquí definimos rol basado en staff / superuser / contadora
+        profile = getattr(user, 'profile', None)
+        if user.is_superuser:
+            token['role'] = 'admin'
+        elif profile and getattr(profile, 'role', None):
+            token['role'] = profile.role  # contadora o cliente
+        else:
+            token['role'] = 'cliente'
         return token
 
 # --- Serializador para Registro de Usuarios ---
@@ -107,4 +115,9 @@ class ProfileSerializer(serializers.ModelSerializer):
 class ProductoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Producto
+        fields = '__all__'
+
+class PlanSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Plan
         fields = '__all__'

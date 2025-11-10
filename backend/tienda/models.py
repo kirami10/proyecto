@@ -36,3 +36,13 @@ class Producto(models.Model):
     def __str__(self):
         return self.nombre
     
+class Plan(models.Model):
+    nombre = models.CharField(max_length=50)
+    precio = models.DecimalField(max_digits=10, decimal_places=0)  # Precio mensual
+    duracion_meses = models.PositiveIntegerField(default=1)  # Duración en meses
+    descripcion = models.TextField(blank=True)
+    creado_en = models.DateTimeField(auto_now_add=True)
+    actualizado_en = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.nombre} - ${self.precio}/mes"

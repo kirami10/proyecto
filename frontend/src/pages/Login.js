@@ -10,7 +10,6 @@ function Login({ onLogin }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      // CORRECCIÓN: Eliminamos '/api' aquí porque ya viene en API_URL
       const response = await fetch(`${API_URL}/token/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

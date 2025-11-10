@@ -1,16 +1,16 @@
 import React, { useState, useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
-import { jwtDecode } from "jwt-decode";
+import { jwtDecode } from "jwt-decode"; // ✅ Corregido
 
 import Navbar from "./components/Navbar";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Profile from "./pages/Profile";
-import NewPost from "./pages/NewPost"; // <--- Importamos el nuevo componente
+import NewPost from "./pages/NewPost";
 import GestionUsuarios from "./pages/GestionUsuarios";
+import GestionPlanes from "./pages/GestionPlanes"; // Nueva página de planes
 
 function App() {
-  // ... (todo el código de estado y useEffect se mantiene igual) ...
   const [token, setToken] = useState(localStorage.getItem("token") || null);
   const [userRole, setUserRole] = useState(null);
 
@@ -32,7 +32,7 @@ function App() {
     } else {
       setUserRole(null);
     }
-  }, [token]);
+  }, [token]); // ✅ Dependencia correcta
 
   const handleLogin = (access) => {
     localStorage.setItem("token", access);
@@ -56,8 +56,8 @@ function App() {
             element={token ? <Navigate to="/profile" replace /> : <Login onLogin={handleLogin} />}
           />
           <Route
-             path="/register"
-             element={token ? <Navigate to="/profile" replace /> : <Register />}
+            path="/register"
+            element={token ? <Navigate to="/profile" replace /> : <Register />}
           />
           <Route
             path="/profile"
@@ -65,25 +65,23 @@ function App() {
           />
 
           <Route
-        path="/gestion-usuarios"
-        element={
-          token && userRole === "admin" ? (
-            <GestionUsuarios token={token} />
-          ) : (
-            <Navigate to="/" replace />
-          )
-        }
-      />
-          {/* NUEVA RUTA PROTEGIDA: Solo accesible si el rol es 'admin' */}
+            path="/gestion-usuarios"
+            element={
+              token && userRole === "admin" ? <GestionUsuarios token={token} /> : <Navigate to="/" replace />
+            }
+          />
+
           <Route
             path="/publicar-producto"
             element={
-              token && userRole === "admin" ? (
-                <NewPost />
-              ) : (
-                // Si no es admin, redirigimos al inicio o al login según corresponda
-                <Navigate to="/" replace />
-              )
+              token && (userRole === "admin" || userRole === "staff") ? <NewPost /> : <Navigate to="/" replace />
+            }
+          />
+
+          <Route
+            path="/gestion-planes"
+            element={
+              token && userRole === "admin" ? <GestionPlanes token={token} /> : <Navigate to="/" replace />
             }
           />
 
