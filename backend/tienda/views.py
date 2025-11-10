@@ -1,38 +1,32 @@
+from rest_framework import viewsets, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.parsers import MultiPartParser, FormParser
-from rest_framework_simplejwt.views import TokenObtainPairView # Import necesario
+from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly, IsAdminUser
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser # <--- IMPORTANTE: Agregado JSONParser
+from rest_framework_simplejwt.views import TokenObtainPairView
 from django.contrib.auth.models import User
-from .models import Profile
-from .serializers import RegisterSerializer, ProfileSerializer, MyTokenObtainPairSerializer # Importamos el nuevo serializer
+from .models import Profile, Producto
+from .serializers import RegisterSerializer, ProfileSerializer, MyTokenObtainPairSerializer, ProductoSerializer
 
-# NUEVO: Vista personalizada para el token
+# Vista personalizada para obtener Token JWT
 class MyTokenObtainPairView(TokenObtainPairView):
     serializer_class = MyTokenObtainPairSerializer
 
+# Vista para Registro
 class RegisterView(APIView):
     def post(self, request):
         data = request.data
-        serializer = RegisterSerializer(
-            data=data,
-            context={
-                'nombre': data.get('nombre'),
-                'apellidos': data.get('apellidos'),
-                'rut': data.get('rut'),
-                'numero_personal': data.get('numero_personal'),
-                'numero_emergencia': data.get('numero_emergencia')
-            }
-        )
+        serializer = RegisterSerializer(data=data, context=data)
         if serializer.is_valid():
             serializer.save()
             return Response({"message": "Usuario creado correctamente"}, status=201)
         return Response(serializer.errors, status=400)
 
+# Vista para Perfil
 class ProfileView(APIView):
     permission_classes = [IsAuthenticated]
-    parser_classes = (MultiPartParser, FormParser)
+    # IMPORTANTE: Agregamos JSONParser para permitir actualizaciones sin archivos
+    parser_classes = (MultiPartParser, FormParser, JSONParser)
 
     def get_object(self, user):
         try:
@@ -42,18 +36,21 @@ class ProfileView(APIView):
 
     def get(self, request):
         profile = self.get_object(request.user)
-        if profile is None:
-             return Response({"error": "Perfil no encontrado"}, status=404)
-        serializer = ProfileSerializer(profile)
-        return Response(serializer.data)
+        if not profile: return Response({"error": "Perfil no encontrado"}, status=404)
+        return Response(ProfileSerializer(profile).data)
 
     def patch(self, request):
         profile = self.get_object(request.user)
-        if profile is None:
-            return Response({"error": "Perfil no encontrado"}, status=404)
-
+        if not profile: return Response({"error": "Perfil no encontrado"}, status=404)
         serializer = ProfileSerializer(profile, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=400)
+
+# ViewSet para Productos (CRUD completo)
+class ProductoViewSet(viewsets.ModelViewSet):
+    queryset = Producto.objects.all()
+    serializer_class = ProductoSerializer
+    # Puedes descomentar la siguiente línea para restringir quién puede crear/editar
+    # permission_classes = [IsAuthenticatedOrReadOnly]

@@ -1,9 +1,9 @@
-from django.contrib.auth.models import User
 from django.db import models
+from django.contrib.auth.models import User
 
+# Modelo de Perfil de Usuario
 class Profile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
-    # Nuevo campo para la foto de perfil
     avatar = models.ImageField(upload_to='avatars/', null=True, blank=True)
     nombre = models.CharField(max_length=50, null=True, blank=True)
     apellidos = models.CharField(max_length=50, null=True, blank=True)
@@ -13,3 +13,16 @@ class Profile(models.Model):
 
     def __str__(self):
         return self.user.username
+
+# NUEVO: Modelo de Producto
+class Producto(models.Model):
+    nombre = models.CharField(max_length=100)
+    descripcion = models.TextField(blank=True)
+    precio = models.IntegerField() # Usamos IntegerField para pesos chilenos
+    stock = models.IntegerField(default=0)
+    imagen = models.ImageField(upload_to='productos/', null=True, blank=True)
+    creado_en = models.DateTimeField(auto_now_add=True)
+    actualizado_en = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.nombre
