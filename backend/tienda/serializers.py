@@ -62,12 +62,13 @@ class RegisterSerializer(serializers.ModelSerializer):
 
 # --- Serializador para Perfil de Usuario (con actualización) ---
 class ProfileSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(source='user.id', read_only=True)  # <--- Agregado
     username = serializers.CharField(source='user.username', read_only=True)
     email = serializers.EmailField(source='user.email')
 
     class Meta:
         model = Profile
-        fields = ['username', 'email', 'avatar', 'nombre', 'apellidos', 'rut', 'numero_personal', 'numero_emergencia']
+        fields = ['id', 'username', 'email', 'avatar', 'nombre', 'apellidos', 'rut', 'numero_personal', 'numero_emergencia']
         read_only_fields = ['rut', 'username']
 
     def update(self, instance, validated_data):

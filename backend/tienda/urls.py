@@ -1,13 +1,13 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import RegisterView, ProfileView, ProductoViewSet
+from .views import ProductoViewSet, UserAdminViewSet, RegisterView, ProfileView
 
-# Router para ViewSets
 router = DefaultRouter()
-router.register(r'productos', ProductoViewSet) # Crea rutas como /api/productos/
+router.register(r'productos', ProductoViewSet)
+router.register(r'usuarios', UserAdminViewSet)
 
 urlpatterns = [
     path('register/', RegisterView.as_view(), name='register'),
     path('profile/', ProfileView.as_view(), name='profile'),
-    path('', include(router.urls)), # Incluye las rutas generadas por el router
+    path('', include(router.urls)),  # Esto incluye las rutas generadas por DefaultRouter
 ]

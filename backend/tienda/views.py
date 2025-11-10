@@ -52,5 +52,54 @@ class ProfileView(APIView):
 class ProductoViewSet(viewsets.ModelViewSet):
     queryset = Producto.objects.all()
     serializer_class = ProductoSerializer
-    # Puedes descomentar la siguiente línea para restringir quién puede crear/editar
-    # permission_classes = [IsAuthenticatedOrReadOnly]
+
+
+from django.shortcuts import get_object_or_404
+
+from rest_framework import viewsets
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
+from django.shortcuts import get_object_or_404
+from .models import Profile
+from .serializers import ProfileSerializer
+
+class UserAdminViewSet(viewsets.ModelViewSet):
+    queryset = Profile.objects.all()
+    serializer_class = ProfileSerializer
+    permission_classes = [IsAuthenticated]
+
+    # Sobrescribir list para incluir is_active
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        data = []
+        for profile, ser_data in zip(queryset, serializer.data):
+            ser_data['activo'] = profile.user.is_active
+            data.append(ser_data)
+        return Response(data)
+
+    # Sobrescribir get_object para que tome pk correctamente
+    def get_object(self):
+        user_id = self.kwargs.get('pk')
+        return get_object_or_404(Profile, user__id=user_id)
+
+    # Sobrescribir update para actualizar tanto profile como is_active
+    def update(self, request, *args, **kwargs):
+        profile = self.get_object()
+
+        # Actualizar is_active si viene en request
+        is_active = request.data.get('is_active')
+        if is_active is not None:
+            profile.user.is_active = is_active
+            profile.user.save()
+
+        # Actualizar otros campos del profile
+        serializer = self.get_serializer(profile, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        # Agregar estado actualizado en la respuesta
+        response_data = serializer.data
+        response_data['activo'] = profile.user.is_active
+
+        return Response(response_data)

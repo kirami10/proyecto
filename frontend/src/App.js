@@ -7,6 +7,7 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Profile from "./pages/Profile";
 import NewPost from "./pages/NewPost"; // <--- Importamos el nuevo componente
+import GestionUsuarios from "./pages/GestionUsuarios";
 
 function App() {
   // ... (todo el código de estado y useEffect se mantiene igual) ...
@@ -63,6 +64,16 @@ function App() {
             element={token ? <Profile token={token} /> : <Navigate to="/login" replace />}
           />
 
+          <Route
+        path="/gestion-usuarios"
+        element={
+          token && userRole === "admin" ? (
+            <GestionUsuarios token={token} />
+          ) : (
+            <Navigate to="/" replace />
+          )
+        }
+      />
           {/* NUEVA RUTA PROTEGIDA: Solo accesible si el rol es 'admin' */}
           <Route
             path="/publicar-producto"

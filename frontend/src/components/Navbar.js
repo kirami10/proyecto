@@ -9,13 +9,27 @@ function Navbar({ token, onLogout, role }) {
       </div>
 
       <div className="flex items-center gap-6">
-        {/* MODIFICADO: Botón visible para ADMIN y STAFF */}
+        {/* Botón Gestión Usuarios solo para dueño (admin) */}
+        {token && role === "admin" && (
+          <Link
+            to="/gestion-usuarios"
+            className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition font-medium flex items-center gap-2 shadow-sm hover:shadow-purple-900/50"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M13 7a3 3 0 11-6 0 3 3 0 016 0z" />
+              <path fillRule="evenodd" d="M5 14a7 7 0 1110 0H5z" />
+            </svg>
+            <span className="hidden sm:inline">Gestión Usuarios</span>
+          </Link>
+        )}
+
+        {/* Botón Publicar producto (admin y staff) */}
         {token && (role === "admin" || role === "staff") && (
           <Link
             to="/publicar-producto"
             className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition font-medium flex items-center gap-2 shadow-sm hover:shadow-green-900/50"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
             </svg>
             <span className="hidden sm:inline">Publicar Producto</span>
