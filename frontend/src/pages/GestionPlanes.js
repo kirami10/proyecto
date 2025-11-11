@@ -1,17 +1,24 @@
 import React, { useState, useEffect, useCallback } from "react";
 import API_URL from "../api";
 
+// --- Helpers de Formato ---
+const formatCLP = (value) => {
+  const cleanValue = (value || "0").toString().replace(/\D/g, "");
+  if (cleanValue === "") return "";
+  return new Intl.NumberFormat("es-CL").format(parseInt(cleanValue, 10));
+};
+const cleanCLP = (formattedValue) => formattedValue.toString().replace(/\./g, "");
+
 function GestionPlanes() {
   const [planes, setPlanes] = useState([]);
   const [editingPlan, setEditingPlan] = useState(null);
   const [nombre, setNombre] = useState("");
-  const [precio, setPrecio] = useState("");
+  const [precio, setPrecio] = useState(""); // <--- Estado para precio formateado
   const [duracion, setDuracion] = useState(1);
   const [descripcion, setDescripcion] = useState("");
 
   const token = localStorage.getItem("token");
 
-  // useCallback evita recrear la función en cada render
   const fetchPlanes = useCallback(async () => {
     try {
       const res = await fetch(`${API_URL}/planes/`, {
@@ -20,22 +27,18 @@ function GestionPlanes() {
       if (res.ok) {
         const data = await res.json();
         setPlanes(data);
-      } else {
-        console.error("Error al traer planes:", res.status);
       }
-    } catch (err) {
-      console.error("Error de red:", err);
-    }
+    } catch (err) { console.error("Error de red:", err); }
   }, [token]);
 
   useEffect(() => {
     fetchPlanes();
-  }, [fetchPlanes]); // <-- ahora ESLint no da warning
+  }, [fetchPlanes]);
 
   const handleEdit = (plan) => {
     setEditingPlan(plan);
     setNombre(plan.nombre);
-    setPrecio(plan.precio);
+    setPrecio(formatCLP(plan.precio)); // <--- Formatear al editar
     setDuracion(plan.duracion_meses);
     setDescripcion(plan.descripcion || "");
   };
@@ -52,7 +55,7 @@ function GestionPlanes() {
     e.preventDefault();
     const payload = {
       nombre,
-      precio,
+      precio: cleanCLP(precio), // <--- Limpiar antes de enviar
       duracion_meses: duracion,
       descripcion,
     };
@@ -75,17 +78,12 @@ function GestionPlanes() {
       if (res.ok) {
         fetchPlanes();
         handleCancel();
-      } else {
-        console.error("Error al guardar plan:", res.status);
-      }
-    } catch (err) {
-      console.error(err);
-    }
+      } else { console.error("Error al guardar plan:", res.status); }
+    } catch (err) { console.error(err); }
   };
 
   const handleDelete = async (planId) => {
     if (!window.confirm("¿Seguro quieres eliminar este plan?")) return;
-
     try {
       const res = await fetch(`${API_URL}/planes/${planId}/`, {
         method: "DELETE",
@@ -93,12 +91,8 @@ function GestionPlanes() {
       });
       if (res.ok) {
         fetchPlanes();
-      } else {
-        console.error("Error al eliminar plan:", res.status);
-      }
-    } catch (err) {
-      console.error(err);
-    }
+      } else { console.error("Error al eliminar plan:", res.status); }
+    } catch (err) { console.error(err); }
   };
 
   return (
@@ -118,14 +112,21 @@ function GestionPlanes() {
             className="p-2 rounded bg-neutral-800 border border-neutral-700"
             required
           />
-          <input
-            type="number"
-            placeholder="Precio"
-            value={precio}
-            onChange={(e) => setPrecio(e.target.value)}
-            className="p-2 rounded bg-neutral-800 border border-neutral-700"
-            required
-          />
+          
+          {/* Input de Precio Mejorado */}
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400">$</span>
+            <input
+              type="text"
+              inputMode="numeric"
+              placeholder="Precio"
+              value={precio}
+              onChange={(e) => setPrecio(formatCLP(e.target.value))}
+              className="w-full p-2 pl-6 rounded bg-neutral-800 border border-neutral-700"
+              required
+            />
+          </div>
+
           <input
             type="number"
             placeholder="Duración en meses"
@@ -172,7 +173,7 @@ function GestionPlanes() {
             {planes.map((plan) => (
               <tr key={plan.id} className="border-b border-neutral-800 hover:bg-neutral-800/30 transition">
                 <td className="p-4">{plan.nombre}</td>
-                <td className="p-4">${plan.precio}</td>
+                <td className="p-4">${formatCLP(plan.precio)}</td> {/* <--- Formateado */}
                 <td className="p-4">{plan.duracion_meses} mes(es)</td>
                 <td className="p-4">{plan.descripcion}</td>
                 <td className="p-4 text-right flex gap-2 justify-end">
