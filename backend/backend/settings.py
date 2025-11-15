@@ -150,3 +150,12 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# --- CONFIGURACIÓN TRANSBANK WEBPAY (INTEGRACIÓN DE PRUEBA) ---
+TRANSBANK_BASE_URL = "https://webpay3gint.transbank.cl"
+TRANSBANK_API_KEY_ID = "597055555532"  # Código de comercio de prueba Webpay Plus
+TRANSBANK_API_KEY_SECRET = "579B532A7440BB0C9079DED94D31EA1615BACEB56610332264630D42D0A36B1C"
+
+# Callback URLs
+WEBPAY_RETURN_URL = "http://127.0.0.1:8000/api/webpay/return/"
+WEBPAY_FINAL_URL = "http://localhost:3000/resultado"

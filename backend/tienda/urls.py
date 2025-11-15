@@ -11,4 +11,5 @@ urlpatterns = [
     path('register/', RegisterView.as_view(), name='register'),
     path('profile/', ProfileView.as_view(), name='profile'),
     path('', include(router.urls)),  # Esto incluye las rutas generadas por DefaultRouter
+    
 ]

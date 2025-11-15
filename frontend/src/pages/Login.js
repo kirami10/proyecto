@@ -1,11 +1,13 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../AuthContext"; // ✅ Use context
 import API_URL from "../api";
 
-function Login({ onLogin }) {
+function Login() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const navigate = useNavigate();
+  const { login } = useAuth(); // ✅ Get login from context
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -18,7 +20,9 @@ function Login({ onLogin }) {
 
       if (response.ok) {
         const data = await response.json();
-        onLogin(data.access);
+        
+        // ✅ Use context login
+        login(data.access, { username });
         navigate("/profile");
       } else {
         alert("Credenciales incorrectas");
@@ -31,10 +35,7 @@ function Login({ onLogin }) {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-neutral-900">
-      <form
-        onSubmit={handleSubmit}
-        className="bg-neutral-800 border border-neutral-700 rounded-xl p-8 w-full max-w-sm shadow-xl shadow-black/40"
-      >
+      <div className="bg-neutral-800 border border-neutral-700 rounded-xl p-8 w-full max-w-sm shadow-xl shadow-black/40">
         <h2 className="text-2xl font-bold text-white mb-6 text-center tracking-wide">
           Iniciar Sesión
         </h2>
@@ -61,12 +62,12 @@ function Login({ onLogin }) {
         </div>
 
         <button
-          type="submit"
+          onClick={handleSubmit}
           className="w-full bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700 transition"
         >
           Entrar
         </button>
-      </form>
+      </div>
     </div>
   );
 }

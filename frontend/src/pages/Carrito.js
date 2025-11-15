@@ -1,6 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { useCart } from "../context/CartContext";
+import { useAuth } from "../AuthContext"; // ✅ Add this import
 
 // --- Helpers de Formato (copiados de Home.js) ---
 const formatCLP = (value) => {
@@ -11,26 +12,96 @@ const formatCLP = (value) => {
 const getImageUrl = (path) => {
   if (!path) return null;
   const BACKEND_BASE_URL = "http://localhost:8000";
-  return path.startsWith("http") ? path : `${BACKEND_BASE_URL}${path.startsWith("/") ? path : "/" + path}`;
+  return path.startsWith("http")
+    ? path
+    : `${BACKEND_BASE_URL}${path.startsWith("/") ? path : "/" + path}`;
 };
 
 function Carrito() {
-  const { 
-    cartItems, 
-    removeFromCart, 
-    increaseQuantity, 
-    decreaseQuantity, 
-    clearCart, 
-    itemCount, 
-    totalPrice 
+  const {
+    cartItems,
+    removeFromCart,
+    increaseQuantity,
+    decreaseQuantity,
+    clearCart,
+    itemCount,
+    totalPrice,
   } = useCart();
+
+  const { authToken } = useAuth(); // ✅ Get the auth token
+
+  // --- FUNCIÓN PARA PAGAR CON WEBPAY ---
+  const handlePago = async () => {
+    // ✅ Debug: Check if token exists
+    console.log("Auth Token:", authToken);
+    
+    if (!authToken) {
+      alert("No estás autenticado. Por favor inicia sesión.");
+      return;
+    }
+
+    try {
+      const response = await fetch("http://127.0.0.1:8000/api/webpay/create/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${authToken}`, // ✅ Add the token here
+        },
+        body: JSON.stringify({
+          amount: totalPrice,
+          session_id: "session_" + Math.floor(Math.random() * 1000000),
+          buy_order: "order_" + Math.floor(Math.random() * 1000000),
+          return_url: "http://localhost:3000/webpay/return",
+        }),
+      });
+
+      // Manejo seguro por si la respuesta no es JSON
+      const text = await response.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        console.error("Respuesta no válida del backend:", text);
+        alert("Error en la respuesta del servidor. Revisa la consola.");
+        return;
+      }
+
+      console.log("Respuesta del backend:", data);
+
+      if (response.ok && data.url && data.token) {
+        // Redirige al formulario de Webpay automáticamente
+        const form = document.createElement("form");
+        form.method = "POST";
+        form.action = data.url;
+
+        const tokenInput = document.createElement("input");
+        tokenInput.type = "hidden";
+        tokenInput.name = "token_ws";
+        tokenInput.value = data.token;
+
+        form.appendChild(tokenInput);
+        document.body.appendChild(form);
+        form.submit();
+      } else {
+        alert("No se pudo iniciar la transacción con Webpay.");
+        console.error("Error en respuesta de Webpay:", data);
+      }
+    } catch (error) {
+      console.error("Error al conectar con el backend:", error);
+      alert("Error al conectar con el servidor.");
+    }
+  };
 
   if (itemCount === 0) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-neutral-950 text-white p-6">
         <div className="text-center">
-          <h1 className="text-4xl font-bold text-white mb-4">Tu carrito está vacío</h1>
-          <p className="text-neutral-400 mb-8">Parece que aún no has añadido productos.</p>
+          <h1 className="text-4xl font-bold text-white mb-4">
+            Tu carrito está vacío
+          </h1>
+          <p className="text-neutral-400 mb-8">
+            Parece que aún no has añadido productos.
+          </p>
           <Link
             to="/"
             className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition"
@@ -57,38 +128,46 @@ function Carrito() {
 
         {/* Layout de Carrito (Lista y Resumen) */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          
           {/* Columna de Items */}
           <div className="lg:col-span-2 space-y-4">
             {cartItems.map((item) => (
-              <div 
-                key={item.id} 
+              <div
+                key={item.id}
                 className="flex items-center bg-neutral-900 border border-neutral-800 rounded-xl p-4 shadow-lg"
               >
                 {/* Imagen */}
-                <img 
-                  src={getImageUrl(item.imagen) || "https://placehold.co/100x100/374151/9ca3af?text=N/A"} 
+                <img
+                  src={
+                    getImageUrl(item.imagen) ||
+                    "https://placehold.co/100x100/374151/9ca3af?text=N/A"
+                  }
                   alt={item.nombre}
-                  className="w-20 h-20 sm:w-24 sm:h-24 object-cover rounded-lg" 
+                  className="w-20 h-20 sm:w-24 sm:h-24 object-cover rounded-lg"
                 />
-                
+
                 {/* Info */}
                 <div className="flex-1 ml-4">
-                  <h3 className="text-lg font-semibold text-white">{item.nombre}</h3>
-                  <p className="text-sm text-neutral-400">${formatCLP(item.precio)} c/u</p>
+                  <h3 className="text-lg font-semibold text-white">
+                    {item.nombre}
+                  </h3>
+                  <p className="text-sm text-neutral-400">
+                    ${formatCLP(item.precio)} c/u
+                  </p>
                 </div>
-                
+
                 {/* Controles de Cantidad */}
                 <div className="flex items-center gap-2 border border-neutral-700 rounded-lg p-1">
-                  <button 
+                  <button
                     onClick={() => decreaseQuantity(item.id)}
                     className="px-2 py-1 rounded hover:bg-neutral-700 disabled:opacity-50"
                     disabled={item.quantity === 1}
                   >
                     -
                   </button>
-                  <span className="w-8 text-center font-bold">{item.quantity}</span>
-                  <button 
+                  <span className="w-8 text-center font-bold">
+                    {item.quantity}
+                  </span>
+                  <button
                     onClick={() => increaseQuantity(item.id)}
                     className="px-2 py-1 rounded hover:bg-neutral-700"
                   >
@@ -98,8 +177,10 @@ function Carrito() {
 
                 {/* Subtotal y Eliminar */}
                 <div className="flex flex-col items-end ml-4">
-                  <span className="font-bold text-lg w-24 text-right">${formatCLP(item.precio * item.quantity)}</span>
-                  <button 
+                  <span className="font-bold text-lg w-24 text-right">
+                    ${formatCLP(item.precio * item.quantity)}
+                  </span>
+                  <button
                     onClick={() => removeFromCart(item.id)}
                     className="text-xs text-red-500 hover:text-red-400 mt-1"
                   >
@@ -132,14 +213,14 @@ function Carrito() {
                   </div>
                 </div>
               </div>
-              <button 
+              <button
+                onClick={handlePago}
                 className="w-full mt-6 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition"
               >
                 Proceder al Pago
               </button>
             </div>
           </div>
-
         </div>
       </div>
     </div>

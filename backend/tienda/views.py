@@ -7,6 +7,11 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from django.contrib.auth.models import User
 from .models import Profile, Producto, Plan
 from .serializers import RegisterSerializer, ProfileSerializer, MyTokenObtainPairSerializer, ProductoSerializer, PlanSerializer
+import requests
+from django.http import JsonResponse
+from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny
 
 # Vista personalizada para obtener Token JWT
 class MyTokenObtainPairView(TokenObtainPairView):
@@ -126,3 +131,120 @@ class PlanViewSet(viewsets.ModelViewSet):
         else:
             permission_classes = [IsAdminUser]
         return [permission() for permission in permission_classes]
+
+# --- INTEGRACIÓN WEBPAY PLUS ---
+import json, requests, time
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.conf import settings
+
+@csrf_exempt
+def webpay_init(request):
+    """
+    Crea una transacción en el entorno de integración de Webpay Plus
+    """
+    data = json.loads(request.body)
+    amount = data.get("amount", 1000)
+    buy_order = f"ORD{int(time.time())}"
+    session_id = f"SES{int(time.time())}"
+
+    payload = {
+        "buy_order": buy_order,
+        "session_id": session_id,
+        "amount": amount,
+        "return_url": settings.WEBPAY_RETURN_URL,
+    }
+
+    headers = {
+        "Tbk-Api-Key-Id": settings.TRANSBANK_API_KEY_ID,
+        "Tbk-Api-Key-Secret": settings.TRANSBANK_API_KEY_SECRET,
+        "Content-Type": "application/json",
+    }
+
+    url = f"{settings.TRANSBANK_BASE_URL}/rswebpaytransaction/api/webpay/v1.2/transactions"
+    resp = requests.post(url, json=payload, headers=headers)
+    return JsonResponse(resp.json(), safe=False)
+
+
+@csrf_exempt
+def webpay_return(request):
+    """
+    Procesa el retorno desde Webpay y obtiene el resultado de la transacción
+    """
+    token = request.POST.get("token_ws")
+    if not token:
+        return JsonResponse({"error": "Token no recibido"}, status=400)
+
+    headers = {
+        "Tbk-Api-Key-Id": settings.TRANSBANK_API_KEY_ID,
+        "Tbk-Api-Key-Secret": settings.TRANSBANK_API_KEY_SECRET,
+        "Content-Type": "application/json",
+    }
+
+    # Obtener resultado
+    result_url = f"{settings.TRANSBANK_BASE_URL}/rswebpaytransaction/api/webpay/v1.2/transactions/{token}"
+    result = requests.put(result_url, headers=headers).json()
+
+    # Confirmar recepción
+    requests.post(f"{result_url}/acknowledge", headers=headers)
+
+    # Redirigir al frontend
+    status = "success" if result.get("response_code") == 0 else "failed"
+    redirect_url = f"{settings.WEBPAY_FINAL_URL}?token={token}&status={status}"
+
+    return JsonResponse({"redirect_url": redirect_url, "result": result})
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def webpay_create(request):
+    try:
+        data = request.data
+        amount = int(data.get('amount', 1000))
+        buy_order = data.get('buy_order', f"ORD{int(time.time())}")
+        session_id = data.get('session_id', f"SES{int(time.time())}")
+        return_url = data.get('return_url', 'http://localhost:3000/webpay/return')
+
+        # ✅ CORRECT credentials
+        commerce_code = "597055555532"
+        api_key_secret = "579B532A7440BB0C9079DED94D31EA1615BACEB56610332264630D42D0A36B1C"  # ← Fixed!
+
+        headers = {
+            "Tbk-Api-Key-Id": commerce_code,
+            "Tbk-Api-Key-Secret": api_key_secret,
+            "Content-Type": "application/json",
+        }
+
+        payload = {
+            "buy_order": buy_order,
+            "session_id": session_id,
+            "amount": amount,
+            "return_url": return_url,
+        }
+
+        print(f"🚀 Usuario: {request.user.username}")
+        print(f"🚀 Transacción: {payload}")
+
+        url = "https://webpay3gint.transbank.cl/rswebpaytransaction/api/webpay/v1.2/transactions"
+        response = requests.post(url, headers=headers, json=payload)
+
+        try:
+            resp_data = response.json()
+        except ValueError:
+            return JsonResponse({"error": "Respuesta no válida de Transbank", "raw": response.text}, status=500)
+
+        print(f"📥 Transbank responde: {resp_data}")
+
+        if response.status_code == 200 and "token" in resp_data:
+            return JsonResponse({
+                "url": "https://webpay3gint.transbank.cl/webpayserver/initTransaction",
+                "token": resp_data["token"]
+            })
+        else:
+            return JsonResponse({
+                "error": resp_data,
+                "status_code": response.status_code
+            }, status=response.status_code)
+
+    except Exception as e:
+        print(f"❌ Error: {e}")
+        return JsonResponse({"error": str(e)}, status=500)
