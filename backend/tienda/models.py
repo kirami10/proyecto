@@ -1,8 +1,9 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.utils import timezone
+from dateutil.relativedelta import relativedelta
 
 # Modelo de Perfil de Usuario
-# models.py
 class Profile(models.Model):
     ROLE_CHOICES = (
         ('cliente', 'Cliente'),
@@ -17,13 +18,12 @@ class Profile(models.Model):
     rut = models.CharField(max_length=12, unique=True)
     numero_personal = models.CharField(max_length=15, blank=True)
     numero_emergencia = models.CharField(max_length=15, blank=True)
-    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='cliente')  # <-- NUEVO
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='cliente')
 
     def __str__(self):
         return self.user.username
 
-
-# NUEVO: Modelo de Producto
+# Modelo de Producto
 class Producto(models.Model):
     nombre = models.CharField(max_length=100)
     descripcion = models.TextField(blank=True)
@@ -46,3 +46,41 @@ class Plan(models.Model):
 
     def __str__(self):
         return f"{self.nombre} - ${self.precio}/mes"
+
+class Suscripcion(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="suscripciones")
+    plan = models.ForeignKey(Plan, on_delete=models.CASCADE)
+    fecha_inicio = models.DateTimeField(auto_now_add=True)
+    fecha_vencimiento = models.DateTimeField()
+    activa = models.BooleanField(default=True)
+    orden_compra = models.CharField(max_length=100, unique=True, null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.user.username} - {self.plan.nombre} ({'Activa' if self.activa else 'Inactiva'})"
+
+    def save(self, *args, **kwargs):
+        if not self.pk:
+            Suscripcion.objects.filter(user=self.user, activa=True).update(activa=False)
+            self.fecha_vencimiento = timezone.now() + relativedelta(months=self.plan.duracion_meses)
+        super().save(*args, **kwargs)
+
+
+# --- AÑADIDO: Modelos de Carrito ---
+class Carrito(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='carrito')
+    creado_en = models.DateTimeField(default=timezone.now)
+
+    def __str__(self):
+        return f"Carrito de {self.user.username}"
+
+class CarritoItem(models.Model):
+    carrito = models.ForeignKey(Carrito, on_delete=models.CASCADE, related_name='items')
+    producto = models.ForeignKey(Producto, on_delete=models.CASCADE)
+    cantidad = models.PositiveIntegerField(default=1)
+
+    @property # <-- Convertido a property
+    def subtotal(self):
+        return self.producto.precio * self.cantidad
+
+    def __str__(self): # <-- Corregido de 'str' a '__str__'
+        return f"{self.producto.nombre} x {self.cantidad}"

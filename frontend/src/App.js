@@ -1,6 +1,6 @@
 import React from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
-import { AuthProvider, useAuth } from "./AuthContext"; // ✅ Import AuthProvider
+import { AuthProvider, useAuth } from "./AuthContext";
 import { CartProvider } from "./context/CartContext"; 
 
 import Navbar from "./components/Navbar";
@@ -14,8 +14,9 @@ import Planes from "./pages/Planes";
 import MiPlan from "./pages/MiPlan";
 import Home from "./pages/Home";
 import Carrito from "./pages/Carrito";
+import PagoResultado from "./pages/PagoResultado"; // Importamos el resultado
+import ComprarPlan from "./pages/ComprarPlan"; // <-- AÑADIR IMPORT
 
-// ✅ Separate component that uses the auth context
 function AppRoutes() {
   const { authToken, logout, userRole } = useAuth();
 
@@ -33,7 +34,14 @@ function AppRoutes() {
           <Route path="/profile" element={authToken ? <Profile token={authToken} /> : <Navigate to="/login" replace />} />
           <Route path="/mi-plan" element={authToken ? <MiPlan /> : <Navigate to="/login" replace />} />
           <Route path="/carrito" element={authToken ? <Carrito /> : <Navigate to="/login" replace />} />
+          <Route path="/resultado" element={<PagoResultado />} />
           
+          {/* --- AÑADIR ESTA RUTA --- */}
+          <Route 
+            path="/comprar-plan/:planId" 
+            element={authToken ? <ComprarPlan /> : <Navigate to="/login" replace />} 
+          />
+
           {/* Rutas Admin/Staff */}
           <Route path="/publicar-producto" element={authToken && (userRole === "admin" || userRole === "contadora") ? <NewPost /> : <Navigate to="/" replace />} />
           <Route path="/gestion-usuarios" element={authToken && userRole === "admin" ? <GestionUsuarios /> : <Navigate to="/" replace />} />
@@ -48,7 +56,7 @@ function AppRoutes() {
 
 function App() {
   return (
-    <AuthProvider> {/* ✅ Wrap with AuthProvider */}
+    <AuthProvider>
       <CartProvider>
         <AppRoutes />
       </CartProvider>

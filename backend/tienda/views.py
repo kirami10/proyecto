@@ -2,22 +2,27 @@ from rest_framework import viewsets, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly, IsAdminUser
-from rest_framework.parsers import MultiPartParser, FormParser, JSONParser # <--- IMPORTANTE: Agregado JSONParser
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework_simplejwt.views import TokenObtainPairView
 from django.contrib.auth.models import User
-from .models import Profile, Producto, Plan
-from .serializers import RegisterSerializer, ProfileSerializer, MyTokenObtainPairSerializer, ProductoSerializer, PlanSerializer
+from .models import Profile, Producto, Plan, Suscripcion, Carrito, CarritoItem # <--- MODIFICADO
+from .serializers import (
+    RegisterSerializer, ProfileSerializer, MyTokenObtainPairSerializer, 
+    ProductoSerializer, PlanSerializer, SuscripcionSerializer, CarritoSerializer, CarritoItemSerializer # <--- MODIFICADO
+)
 import requests
 from django.http import JsonResponse
 from rest_framework.decorators import api_view
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
+from django.shortcuts import get_object_or_404
 
-# Vista personalizada para obtener Token JWT
+
+# ... (Vista MyTokenObtainPairView sin cambios) ...
 class MyTokenObtainPairView(TokenObtainPairView):
     serializer_class = MyTokenObtainPairSerializer
 
-# Vista para Registro
+# ... (Vista RegisterView sin cambios) ...
 class RegisterView(APIView):
     def post(self, request):
         data = request.data
@@ -27,23 +32,17 @@ class RegisterView(APIView):
             return Response({"message": "Usuario creado correctamente"}, status=201)
         return Response(serializer.errors, status=400)
 
-# Vista para Perfil
+# ... (Vista ProfileView sin cambios) ...
 class ProfileView(APIView):
     permission_classes = [IsAuthenticated]
-    # IMPORTANTE: Agregamos JSONParser para permitir actualizaciones sin archivos
     parser_classes = (MultiPartParser, FormParser, JSONParser)
-
     def get_object(self, user):
-        try:
-            return Profile.objects.get(user=user)
-        except Profile.DoesNotExist:
-            return None
-
+        try: return Profile.objects.get(user=user)
+        except Profile.DoesNotExist: return None
     def get(self, request):
         profile = self.get_object(request.user)
         if not profile: return Response({"error": "Perfil no encontrado"}, status=404)
         return Response(ProfileSerializer(profile).data)
-
     def patch(self, request):
         profile = self.get_object(request.user)
         if not profile: return Response({"error": "Perfil no encontrado"}, status=404)
@@ -53,26 +52,16 @@ class ProfileView(APIView):
             return Response(serializer.data)
         return Response(serializer.errors, status=400)
 
-# ViewSet para Productos (CRUD completo)
+# ... (Vista ProductoViewSet sin cambios) ...
 class ProductoViewSet(viewsets.ModelViewSet):
     queryset = Producto.objects.all()
     serializer_class = ProductoSerializer
 
-
-from django.shortcuts import get_object_or_404
-
-from rest_framework import viewsets
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
-from django.shortcuts import get_object_or_404
-from .models import Profile
-from .serializers import ProfileSerializer
-
+# ... (Vista UserAdminViewSet sin cambios) ...
 class UserAdminViewSet(viewsets.ModelViewSet):
     queryset = Profile.objects.all()
     serializer_class = ProfileSerializer
     permission_classes = [IsAuthenticated]
-
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
         serializer = self.get_serializer(queryset, many=True)
@@ -81,50 +70,37 @@ class UserAdminViewSet(viewsets.ModelViewSet):
             ser_data['activo'] = profile.user.is_active
             data.append(ser_data)
         return Response(data)
-
     def get_object(self):
         user_id = self.kwargs.get('pk')
         return get_object_or_404(Profile, user__id=user_id)
-
     def update(self, request, *args, **kwargs):
         profile = self.get_object()
-
-        # Actualizar is_active si viene en request
         is_active = request.data.get('is_active')
         if is_active is not None:
             profile.user.is_active = is_active
             profile.user.save()
-
-        # Actualizar role si viene en request
         role = request.data.get('role')
         if role:
             profile.role = role
-            # Actualizamos is_staff/is_superuser según role
             if role == 'admin':
-                profile.user.is_staff = True
-                profile.user.is_superuser = True
+                profile.user.is_staff = True; profile.user.is_superuser = True
             elif role == 'contadora':
-                profile.user.is_staff = True
-                profile.user.is_superuser = False
-            else:  # cliente
-                profile.user.is_staff = False
-                profile.user.is_superuser = False
+                profile.user.is_staff = True; profile.user.is_superuser = False
+            else:
+                profile.user.is_staff = False; profile.user.is_superuser = False
             profile.user.save()
             profile.save()
-
         serializer = self.get_serializer(profile, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
-
         response_data = serializer.data
         response_data['activo'] = profile.user.is_active
         return Response(response_data)
     
+# ... (Vista PlanViewSet sin cambios) ...
 class PlanViewSet(viewsets.ModelViewSet):
     queryset = Plan.objects.all()
     serializer_class = PlanSerializer
-
-    # Solo admin puede crear, actualizar o eliminar
     def get_permissions(self):
         if self.action in ['list', 'retrieve']:
             permission_classes = [IsAuthenticatedOrReadOnly]
@@ -132,119 +108,97 @@ class PlanViewSet(viewsets.ModelViewSet):
             permission_classes = [IsAdminUser]
         return [permission() for permission in permission_classes]
 
-# --- INTEGRACIÓN WEBPAY PLUS ---
-import json, requests, time
-from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-from django.conf import settings
-
-@csrf_exempt
-def webpay_init(request):
-    """
-    Crea una transacción en el entorno de integración de Webpay Plus
-    """
-    data = json.loads(request.body)
-    amount = data.get("amount", 1000)
-    buy_order = f"ORD{int(time.time())}"
-    session_id = f"SES{int(time.time())}"
-
-    payload = {
-        "buy_order": buy_order,
-        "session_id": session_id,
-        "amount": amount,
-        "return_url": settings.WEBPAY_RETURN_URL,
-    }
-
-    headers = {
-        "Tbk-Api-Key-Id": settings.TRANSBANK_API_KEY_ID,
-        "Tbk-Api-Key-Secret": settings.TRANSBANK_API_KEY_SECRET,
-        "Content-Type": "application/json",
-    }
-
-    url = f"{settings.TRANSBANK_BASE_URL}/rswebpaytransaction/api/webpay/v1.2/transactions"
-    resp = requests.post(url, json=payload, headers=headers)
-    return JsonResponse(resp.json(), safe=False)
+# ... (Vista MiPlanView sin cambios) ...
+class MiPlanView(APIView):
+    permission_classes = [IsAuthenticated]
+    def get(self, request):
+        suscripcion = Suscripcion.objects.filter(
+            user=request.user, 
+            activa=True
+        ).order_by('-fecha_vencimiento').first()
+        if not suscripcion:
+            return Response(None, status=status.HTTP_200_OK) 
+        serializer = SuscripcionSerializer(suscripcion)
+        return Response(serializer.data)
 
 
-@csrf_exempt
-def webpay_return(request):
-    """
-    Procesa el retorno desde Webpay y obtiene el resultado de la transacción
-    """
-    token = request.POST.get("token_ws")
-    if not token:
-        return JsonResponse({"error": "Token no recibido"}, status=400)
+# --- AÑADIDO: Vistas del Carrito ---
 
-    headers = {
-        "Tbk-Api-Key-Id": settings.TRANSBANK_API_KEY_ID,
-        "Tbk-Api-Key-Secret": settings.TRANSBANK_API_KEY_SECRET,
-        "Content-Type": "application/json",
-    }
-
-    # Obtener resultado
-    result_url = f"{settings.TRANSBANK_BASE_URL}/rswebpaytransaction/api/webpay/v1.2/transactions/{token}"
-    result = requests.put(result_url, headers=headers).json()
-
-    # Confirmar recepción
-    requests.post(f"{result_url}/acknowledge", headers=headers)
-
-    # Redirigir al frontend
-    status = "success" if result.get("response_code") == 0 else "failed"
-    redirect_url = f"{settings.WEBPAY_FINAL_URL}?token={token}&status={status}"
-
-    return JsonResponse({"redirect_url": redirect_url, "result": result})
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def obtener_carrito(request):
+    # Corregido: get_or_create devuelve (objeto, created)
+    carrito, created = Carrito.objects.get_or_create(user=request.user)
+    serializer = CarritoSerializer(carrito)
+    return Response(serializer.data)
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
-def webpay_create(request):
+def agregar_al_carrito(request):
+    # Usamos 'producto_id' por convención
+    producto_id = request.data.get('producto_id')
+    cantidad = int(request.data.get('cantidad', 1))
+    
+    if not producto_id:
+        return Response({"error": "producto_id es requerido"}, status=status.HTTP_400_BAD_REQUEST)
+
     try:
-        data = request.data
-        amount = int(data.get('amount', 1000))
-        buy_order = data.get('buy_order', f"ORD{int(time.time())}")
-        session_id = data.get('session_id', f"SES{int(time.time())}")
-        return_url = data.get('return_url', 'http://localhost:3000/webpay/return')
+        producto = Producto.objects.get(id=producto_id)
+    except Producto.DoesNotExist:
+        return Response({"error": "Producto no encontrado"}, status=status.HTTP_404_NOT_FOUND)
 
-        # ✅ CORRECT credentials
-        commerce_code = "597055555532"
-        api_key_secret = "579B532A7440BB0C9079DED94D31EA1615BACEB56610332264630D42D0A36B1C"  # ← Fixed!
+    carrito, created = Carrito.objects.get_or_create(user=request.user)
+    
+    carrito_item, created = CarritoItem.objects.get_or_create(
+        carrito=carrito, 
+        producto=producto
+    )
+    
+    if not created:
+        carrito_item.cantidad += cantidad
+    else:
+        carrito_item.cantidad = cantidad
+    
+    carrito_item.save()
+    
+    # Devolvemos el carrito actualizado, es más útil que un simple mensaje
+    serializer = CarritoSerializer(carrito)
+    return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-        headers = {
-            "Tbk-Api-Key-Id": commerce_code,
-            "Tbk-Api-Key-Secret": api_key_secret,
-            "Content-Type": "application/json",
-        }
+@api_view(['PATCH'])
+@permission_classes([IsAuthenticated])
+def actualizar_item_carrito(request, item_id):
+    try:
+        # Corregido: El bug era 'carritouser', se cambió a 'carrito__user'
+        item = CarritoItem.objects.get(id=item_id, carrito__user=request.user)
+    except CarritoItem.DoesNotExist:
+        return Response({"error": "Item no encontrado"}, status=status.HTTP_404_NOT_FOUND)
 
-        payload = {
-            "buy_order": buy_order,
-            "session_id": session_id,
-            "amount": amount,
-            "return_url": return_url,
-        }
+    cantidad = int(request.data.get('cantidad', item.cantidad))
+    
+    if cantidad <= 0:
+        item.delete()
+    else:
+        item.cantidad = cantidad
+        item.save()
+    
+    # Devolvemos el carrito actualizado
+    carrito = Carrito.objects.get(user=request.user)
+    serializer = CarritoSerializer(carrito)
+    return Response(serializer.data)
 
-        print(f"🚀 Usuario: {request.user.username}")
-        print(f"🚀 Transacción: {payload}")
-
-        url = "https://webpay3gint.transbank.cl/rswebpaytransaction/api/webpay/v1.2/transactions"
-        response = requests.post(url, headers=headers, json=payload)
-
-        try:
-            resp_data = response.json()
-        except ValueError:
-            return JsonResponse({"error": "Respuesta no válida de Transbank", "raw": response.text}, status=500)
-
-        print(f"📥 Transbank responde: {resp_data}")
-
-        if response.status_code == 200 and "token" in resp_data:
-            return JsonResponse({
-                "url": "https://webpay3gint.transbank.cl/webpayserver/initTransaction",
-                "token": resp_data["token"]
-            })
-        else:
-            return JsonResponse({
-                "error": resp_data,
-                "status_code": response.status_code
-            }, status=response.status_code)
-
-    except Exception as e:
-        print(f"❌ Error: {e}")
-        return JsonResponse({"error": str(e)}, status=500)
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def eliminar_item_carrito(request, item_id):
+    try:
+        # Corregido: El bug era 'carritouser', se cambió a 'carrito__user'
+        item = CarritoItem.objects.get(id=item_id, carrito__user=request.user)
+    except CarritoItem.DoesNotExist:
+        return Response({"error": "Item no encontrado"}, status=status.HTTP_404_NOT_FOUND)
+    
+    item.delete()
+    
+    # Devolvemos el carrito actualizado
+    carrito = Carrito.objects.get(user=request.user)
+    serializer = CarritoSerializer(carrito)
+    return Response(serializer.data)

@@ -1,31 +1,44 @@
-# tienda/views_webpay.py
+import json
 import requests
 import time
-from django.http import JsonResponse
+from django.conf import settings
+from django.http import HttpResponseRedirect, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_http_methods
-import json
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
 
-@csrf_exempt
-@require_http_methods(["POST"])
+# --- AÑADIR IMPORTS ---
+from django.contrib.auth.models import User
+from .models import Plan, Suscripcion
+from django.shortcuts import get_object_or_404
+# --- FIN IMPORTS ---
+
+
+# Credenciales de Integración (Test)
+TBK_API_KEY_ID = "597055555532"
+TBK_API_KEY_SECRET = "579B532A7440BB0C9079DED94D31EA1615BACEB56610332264630D42D0A36B1C"
+TBK_URL_CREATE = "https://webpay3gint.transbank.cl/rswebpaytransaction/api/webpay/v1.2/transactions"
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def webpay_create(request):
     """
-    Crea una transacción Webpay Plus en ambiente de integración/prueba.
+    1. El Frontend llama aquí para iniciar el pago (PARA EL CARRITO DE COMPRAS).
     """
     try:
-        # Parsear el body
-        data = json.loads(request.body)
+        data = request.data
         amount = int(data.get('amount', 1000))
-        buy_order = data.get('buy_order', f"ORD{int(time.time())}")
-        session_id = data.get('session_id', f"SES{int(time.time())}")
-        return_url = data.get('return_url', 'http://localhost:3000/webpay/return')
-
-        # Configuración Webpay
-        url = "https://webpay3gint.transbank.cl/rswebpaytransaction/api/webpay/v1.2/transactions"
         
+        # --- BUY_ORDER MEJORADA (para el carrito) ---
+        # FORMATO: CART-USER-USER_ID-TIMESTAMP
+        buy_order = f"CART-USER-{request.user.id}-T-{int(time.time())}"
+        session_id = f"SES-{int(time.time())}"
+        
+        return_url = request.build_absolute_uri('/api/webpay/return/')
+
         headers = {
-            "Tbk-Api-Key-Id": "597055555532",
-            "Tbk-Api-Key-Secret": "579B532A7440BB0C9079DED94D31EA161EB9A7DC7A6F74E5BC78E89F0C1F9D65",
+            "Tbk-Api-Key-Id": TBK_API_KEY_ID,
+            "Tbk-Api-Key-Secret": TBK_API_KEY_SECRET,
             "Content-Type": "application/json",
         }
 
@@ -36,25 +49,93 @@ def webpay_create(request):
             "return_url": return_url,
         }
 
-        print(f"🚀 Creando transacción: {payload}")
-
-        # Llamar a Transbank
-        response = requests.post(url, headers=headers, json=payload, timeout=10)
+        response = requests.post(TBK_URL_CREATE, headers=headers, json=payload)
         resp_data = response.json()
-
-        print(f"📥 Respuesta Transbank ({response.status_code}): {resp_data}")
 
         if response.status_code == 200 and "token" in resp_data:
             return JsonResponse({
-                "url": "https://webpay3gint.transbank.cl/webpayserver/initTransaction",
-                "token": resp_data["token"]
+                "url": resp_data["url"],
+                "token": resp_data["token"],
+                "buy_order": buy_order
             })
         else:
-            return JsonResponse({
-                "error": "Error al crear transacción",
-                "details": resp_data
-            }, status=response.status_code)
+            return JsonResponse({"error": "Error creando transacción en Transbank", "details": resp_data}, status=400)
 
     except Exception as e:
-        print(f"❌ Error: {e}")
         return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+def webpay_return(request):
+    """
+    2. Transbank devuelve al usuario aquí (POST o GET).
+    3. Confirmamos la transacción.
+    4. SI ES EXITOSO, guardamos la suscripción/orden.
+    5. Redirigimos al Frontend.
+    """
+    token = request.POST.get("token_ws") or request.GET.get("token_ws")
+    
+    tbk_token = request.POST.get("TBK_TOKEN") or request.GET.get("TBK_TOKEN")
+    if tbk_token and not token:
+        frontend_url = f"http://localhost:3000/resultado?status=aborted"
+        return HttpResponseRedirect(frontend_url)
+
+    if not token:
+        return JsonResponse({"error": "Token no recibido"}, status=400)
+
+    # Confirmar transacción (PUT)
+    url_commit = f"{TBK_URL_CREATE}/{token}"
+    headers = {
+        "Tbk-Api-Key-Id": TBK_API_KEY_ID,
+        "Tbk-Api-Key-Secret": TBK_API_KEY_SECRET,
+        "Content-Type": "application/json",
+    }
+
+    response = requests.put(url_commit, headers=headers)
+    result = response.json()
+    
+    status = "failed"
+    buy_order = result.get('buy_order', '')
+    
+    if response.status_code == 200 and result.get("response_code") == 0:
+        status = "success"
+        
+        # --- INICIO DE LÓGICA DE SUSCRIPCIÓN ---
+        try:
+            # Evitar procesar la misma orden dos veces
+            if not Suscripcion.objects.filter(orden_compra=buy_order).exists():
+            
+                # A. ¿Es una compra de Plan?
+                if buy_order.startswith("PLAN-"):
+                    # 'PLAN-PLAN_ID-USER-USER_ID-T-TIMESTAMP'
+                    parts = buy_order.split('-')
+                    plan_id = parts[1]
+                    user_id = parts[3]
+                    
+                    user = get_object_or_404(User, id=user_id)
+                    plan = get_object_or_404(Plan, id=plan_id)
+                    
+                    # ¡Crear la suscripción!
+                    Suscripcion.objects.create(
+                        user=user,
+                        plan=plan,
+                        orden_compra=buy_order
+                    )
+                
+                # B. ¿Es una compra de Carrito? (Lógica futura)
+                elif buy_order.startswith("CART-"):
+                    # Aquí iría la lógica para crear un Pedido
+                    # y descontar stock de Productos.
+                    print(f"Compra de carrito {buy_order} exitosa. (Lógica no implementada)")
+
+        except Exception as e:
+            # Si algo falla al guardar la orden, el pago está hecho
+            # pero deberíamos loguearlo para revisión manual.
+            print(f"Error grave al guardar orden {buy_order}: {str(e)}")
+            status = "failed_post_payment"
+        # --- FIN DE LÓGICA DE SUSCRIPCIÓN ---
+    
+    # Redirigir al Frontend
+    frontend_url = f"http://localhost:3000/resultado?status={status}&amount={result.get('amount', 0)}&buy_order={buy_order}"
+    
+    return HttpResponseRedirect(frontend_url)

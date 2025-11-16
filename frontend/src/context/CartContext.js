@@ -1,92 +1,159 @@
-import React, { createContext, useState, useContext } from 'react';
+import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
+import { useAuth } from '../AuthContext';
+import API_URL from '../api'; // Asegúrate de que API_URL esté importado
 
 const CartContext = createContext();
-
-export const useCart = () => {
-  return useContext(CartContext);
-};
+export const useCart = () => useContext(CartContext);
 
 export const CartProvider = ({ children }) => {
+  const { authToken } = useAuth();
   const [cartItems, setCartItems] = useState([]);
+  const [cartTotal, setCartTotal] = useState(0); // <-- Estado para el total
+  const [itemCount, setItemCount] = useState(0); // <-- Estado para la cantidad
 
-  // --- FUNCIONES DEL CARRITO ---
+  // --- FUNCIÓN ÚNICA PARA ACTUALIZAR EL ESTADO ---
+  // El backend siempre devuelve el carrito actualizado,
+  // así que usamos esta función para actualizar el estado de React.
+  const updateCartState = (cartData) => {
+    setCartItems(cartData.items || []);
+    setCartTotal(cartData.total || 0);
+    setItemCount((cartData.items || []).reduce((total, item) => total + item.cantidad, 0));
+  };
 
-  const addToCart = (producto) => {
-    setCartItems((prevItems) => {
-      const itemExists = prevItems.find((item) => item.id === producto.id);
-      if (itemExists) {
-        return prevItems.map((item) =>
-          item.id === producto.id
-            ? { ...item, quantity: item.quantity + 1 } // Aumenta cantidad
-            : item
-        );
-      } else {
-        return [...prevItems, { ...producto, quantity: 1 }]; // Agrega nuevo
+  // --- CARGAR CARRITO DEL BACKEND ---
+  const fetchCart = useCallback(async () => {
+    if (!authToken) {
+      updateCartState({}); // Limpia el carrito si no hay token
+      return;
+    }
+    try {
+      const res = await fetch(`${API_URL}/carrito/`, {
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+      const data = await res.json();
+      if (res.ok) {
+        updateCartState(data);
       }
-    });
-    alert(`${producto.nombre} ha sido añadido al carrito!`);
-  };
+    } catch (error) {
+      console.error('Error cargando carrito:', error);
+    }
+  }, [authToken]);
 
-  // NUEVA: Aumentar cantidad en 1
-  const increaseQuantity = (id) => {
-    setCartItems((prevItems) =>
-      prevItems.map((item) =>
-        item.id === id ? { ...item, quantity: item.quantity + 1 } : item
-      )
-    );
-  };
+  useEffect(() => {
+    fetchCart();
+  }, [fetchCart]); // Se ejecuta al cargar y cada vez que authToken cambia
 
-  // NUEVA: Disminuir cantidad en 1 (no baja de 1)
-  const decreaseQuantity = (id) => {
-    setCartItems((prevItems) =>
-      prevItems.map((item) =>
-        item.id === id && item.quantity > 1
-          ? { ...item, quantity: item.quantity - 1 }
-          : item
-      )
-    );
-  };
-
-  // NUEVA: Eliminar un item por completo
-  const removeFromCart = (id) => {
-    setCartItems((prevItems) =>
-      prevItems.filter((item) => item.id !== id)
-    );
-  };
-
-  // NUEVA: Vaciar el carrito
-  const clearCart = () => {
-    if (window.confirm("¿Seguro que quieres vaciar el carrito?")) {
-      setCartItems([]);
+  // --- FUNCIONES DEL CARRITO (MODIFICADAS para usar la respuesta de la API) ---
+  const addToCart = async (producto) => {
+    if (!authToken) return alert('Debes iniciar sesión para agregar productos');
+    try {
+      const res = await fetch(`${API_URL}/carrito/agregar/`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ producto_id: producto.id, cantidad: 1 }),
+      });
+      const data = await res.json(); // <-- El backend devuelve el carrito actualizado
+      if (res.ok) {
+        updateCartState(data); // Actualiza el estado con la respuesta
+        alert(`${producto.nombre} ha sido añadido al carrito!`);
+      }
+    } catch (err) {
+      console.error(err);
     }
   };
 
-  // --- CÁLCULOS DERIVADOS ---
+  const increaseQuantity = async (item) => {
+    if (!authToken) return;
+    try {
+      const res = await fetch(`${API_URL}/carrito/item/${item.id}/actualizar/`, {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ cantidad: item.cantidad + 1 }),
+      });
+      const data = await res.json(); // <-- El backend devuelve el carrito actualizado
+      if (res.ok) updateCartState(data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
-  // Cantidad total de items (para el ícono del navbar)
-  const itemCount = cartItems.reduce((total, item) => total + item.quantity, 0);
+  const decreaseQuantity = async (item) => {
+    if (!authToken) return;
+    const nuevaCantidad = item.cantidad - 1;
+    
+    // Si la cantidad es 0, usamos la función de eliminar
+    if (nuevaCantidad <= 0) return removeFromCart(item);
+    
+    try {
+      const res = await fetch(`${API_URL}/carrito/item/${item.id}/actualizar/`, {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ cantidad: nuevaCantidad }),
+      });
+      const data = await res.json(); // <-- El backend devuelve el carrito actualizado
+      if (res.ok) updateCartState(data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
-  // Precio total del carrito
-  const totalPrice = cartItems.reduce(
-    (total, item) => total + item.precio * item.quantity,
-    0
-  );
+  const removeFromCart = async (item) => {
+    if (!authToken) return;
+    try {
+      const res = await fetch(`${API_URL}/carrito/item/${item.id}/eliminar/`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+      const data = await res.json(); // <-- El backend devuelve el carrito actualizado
+      if (res.ok) updateCartState(data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
-  // --- VALOR DEL CONTEXTO ---
+  // --- LÓGICA DE VACIAR CARRITO (Fusionada) ---
+  const clearCart = async (confirm = true) => {
+    if (!authToken) return;
+    if (confirm && !window.confirm('¿Seguro que quieres vaciar el carrito?')) return;
+    
+    try {
+      // Usamos Promise.all para borrar todos los items
+      // (Una mejor solución a futuro es un endpoint '.../carrito/vaciar/')
+      await Promise.all(
+        cartItems.map((item) =>
+          fetch(`${API_URL}/carrito/item/${item.id}/eliminar/`, {
+            method: 'DELETE',
+            headers: { Authorization: `Bearer ${authToken}` },
+          })
+        )
+      );
+      // Cuando todas las promesas terminan, volvemos a pedir el carrito (que estará vacío)
+      fetchCart();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const value = {
     cartItems,
     addToCart,
-    removeFromCart,
     increaseQuantity,
     decreaseQuantity,
+    removeFromCart,
     clearCart,
-    itemCount,
-    totalPrice,
+    itemCount, // <-- Ahora viene del estado
+    totalPrice: cartTotal, // <-- Ahora viene del estado
+    fetchCart,
   };
 
-  return (
-    <CartContext.Provider value={value}>
-      {children}
-    </CartContext.Provider>
-  );
+  return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 };

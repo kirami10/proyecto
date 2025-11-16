@@ -1,13 +1,13 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../AuthContext"; // ✅ Use context
+import { useAuth } from "../AuthContext";
 import API_URL from "../api";
 
 function Login() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const navigate = useNavigate();
-  const { login } = useAuth(); // ✅ Get login from context
+  const { login } = useAuth();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -21,9 +21,23 @@ function Login() {
       if (response.ok) {
         const data = await response.json();
         
-        // ✅ Use context login
         login(data.access, { username });
-        navigate("/profile");
+        
+        // --- INICIO DE LA MODIFICACIÓN ---
+        // Revisamos si había un plan pendiente guardado
+        const pendingPlanId = localStorage.getItem('pendingPlanId');
+        
+        if (pendingPlanId) {
+          // Si hay uno, limpiamos el localStorage
+          localStorage.removeItem('pendingPlanId');
+          // Y redirigimos a la compra de ese plan
+          navigate(`/comprar-plan/${pendingPlanId}`);
+        } else {
+          // Si no, vamos al perfil (comportamiento normal)
+          navigate("/profile");
+        }
+        // --- FIN DE LA MODIFICACIÓN ---
+
       } else {
         alert("Credenciales incorrectas");
       }

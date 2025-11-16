@@ -1,9 +1,9 @@
-import React from "react";
-import { Link } from "react-router-dom";
+import React, { useEffect } from "react"; // <--- Añadido useEffect
+import { Link, useNavigate } from "react-router-dom"; // <--- Añadido useNavigate
 import { useCart } from "../context/CartContext";
-import { useAuth } from "../AuthContext"; // ✅ Add this import
+import { useAuth } from "../AuthContext";
 
-// --- Helpers de Formato (copiados de Home.js) ---
+// --- Helpers de Formato ---
 const formatCLP = (value) => {
   const cleanValue = (value || "0").toString().replace(/\D/g, "");
   return new Intl.NumberFormat("es-CL").format(parseInt(cleanValue, 10));
@@ -12,50 +12,51 @@ const formatCLP = (value) => {
 const getImageUrl = (path) => {
   if (!path) return null;
   const BACKEND_BASE_URL = "http://localhost:8000";
-  return path.startsWith("http")
-    ? path
-    : `${BACKEND_BASE_URL}${path.startsWith("/") ? path : "/" + path}`;
+  return path.startsWith("http") ? path : `${BACKEND_BASE_URL}${path.startsWith("/") ? path : "/" + path}`;
 };
 
 function Carrito() {
-  const {
-    cartItems,
-    removeFromCart,
-    increaseQuantity,
-    decreaseQuantity,
-    clearCart,
-    itemCount,
-    totalPrice,
-  } = useCart();
+  const { cartItems, removeFromCart, increaseQuantity, decreaseQuantity, clearCart, itemCount, totalPrice } = useCart();
+  const { authToken, user } = useAuth(); // <--- Añadido user
+  const navigate = useNavigate(); // <--- Añadido navigate
 
-  const { authToken } = useAuth(); // ✅ Get the auth token
+  // --- AÑADIDO: Lógica para manejar el "Botón Atrás" ---
+  useEffect(() => {
+    const inProgress = sessionStorage.getItem('webpay_in_progress');
+    if (inProgress === 'true') {
+      sessionStorage.removeItem('webpay_in_progress');
+      navigate('/resultado?status=aborted_by_user');
+    }
+  }, [navigate]);
+  // --- FIN DE LÓGICA AÑADIDA ---
 
-  // --- FUNCIÓN PARA PAGAR CON WEBPAY ---
+
+  // --- FUNCIÓN PARA PAGAR CON WEBPAY (CORREGIDA) ---
   const handlePago = async () => {
-    // ✅ Debug: Check if token exists
-    console.log("Auth Token:", authToken);
-    
-    if (!authToken) {
-      alert("No estás autenticado. Por favor inicia sesión.");
+    if (!authToken || !user?.user_id) {
+      alert("No estás autenticado o tu ID no se pudo cargar. Por favor, inicia sesión.");
       return;
     }
+    
+    // --- Lógica de buy_order y return_url corregida ---
+    const buy_order = `CART-USER-${user.user_id}-T-${Date.now()}`;
+    const return_url = "http://127.0.0.1:8000/api/webpay/return/"; // <-- URL del Backend
 
     try {
       const response = await fetch("http://127.0.0.1:8000/api/webpay/create/", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${authToken}`, // ✅ Add the token here
+          "Authorization": `Bearer ${authToken}`,
         },
         body: JSON.stringify({
           amount: totalPrice,
           session_id: "session_" + Math.floor(Math.random() * 1000000),
-          buy_order: "order_" + Math.floor(Math.random() * 1000000),
-          return_url: "http://localhost:3000/webpay/return",
+          buy_order: buy_order, // <-- Corregido
+          return_url: return_url, // <-- Corregido
         }),
       });
 
-      // Manejo seguro por si la respuesta no es JSON
       const text = await response.text();
       let data;
       try {
@@ -66,19 +67,17 @@ function Carrito() {
         return;
       }
 
-      console.log("Respuesta del backend:", data);
-
       if (response.ok && data.url && data.token) {
-        // Redirige al formulario de Webpay automáticamente
+        // --- AÑADIDO: Seteo de sessionStorage ---
+        sessionStorage.setItem('webpay_in_progress', 'true');
+        
         const form = document.createElement("form");
         form.method = "POST";
         form.action = data.url;
-
         const tokenInput = document.createElement("input");
         tokenInput.type = "hidden";
         tokenInput.name = "token_ws";
         tokenInput.value = data.token;
-
         form.appendChild(tokenInput);
         document.body.appendChild(form);
         form.submit();
@@ -91,21 +90,15 @@ function Carrito() {
       alert("Error al conectar con el servidor.");
     }
   };
+  // --- FIN DE FUNCIÓN MODIFICADA ---
 
   if (itemCount === 0) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-neutral-950 text-white p-6">
         <div className="text-center">
-          <h1 className="text-4xl font-bold text-white mb-4">
-            Tu carrito está vacío
-          </h1>
-          <p className="text-neutral-400 mb-8">
-            Parece que aún no has añadido productos.
-          </p>
-          <Link
-            to="/"
-            className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition"
-          >
+          <h1 className="text-4xl font-bold mb-4">Tu carrito está vacío</h1>
+          <p className="text-neutral-400 mb-8">Parece que aún no has añadido productos.</p>
+          <Link to="/" className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition">
             Volver a la Tienda
           </Link>
         </div>
@@ -118,70 +111,49 @@ function Carrito() {
       <div className="container mx-auto max-w-4xl">
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-4xl font-bold">Tu Carrito</h1>
-          <button
-            onClick={clearCart}
-            className="text-sm text-neutral-400 hover:text-red-500 transition"
-          >
+          {/* Llamada a clearCart(true) para que pida confirmación */}
+          <button onClick={() => clearCart(true)} className="text-sm text-neutral-400 hover:text-red-500 transition">
             Vaciar Carrito
           </button>
         </div>
 
-        {/* Layout de Carrito (Lista y Resumen) */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Columna de Items */}
           <div className="lg:col-span-2 space-y-4">
             {cartItems.map((item) => (
-              <div
-                key={item.id}
-                className="flex items-center bg-neutral-900 border border-neutral-800 rounded-xl p-4 shadow-lg"
-              >
-                {/* Imagen */}
+              <div key={item.id} className="flex items-center bg-neutral-900 border border-neutral-800 rounded-xl p-4 shadow-lg">
                 <img
-                  src={
-                    getImageUrl(item.imagen) ||
-                    "https://placehold.co/100x100/374151/9ca3af?text=N/A"
-                  }
-                  alt={item.nombre}
+                  // --- Campos del nuevo serializador ---
+                  src={getImageUrl(item.imagen_producto) || "https://placehold.co/100x100/374151/9ca3af?text=N/A"}
+                  alt={item.nombre_producto}
                   className="w-20 h-20 sm:w-24 sm:h-24 object-cover rounded-lg"
                 />
-
-                {/* Info */}
                 <div className="flex-1 ml-4">
-                  <h3 className="text-lg font-semibold text-white">
-                    {item.nombre}
-                  </h3>
-                  <p className="text-sm text-neutral-400">
-                    ${formatCLP(item.precio)} c/u
-                  </p>
+                  <h3 className="text-lg font-semibold">{item.nombre_producto}</h3>
+                  <p className="text-sm text-neutral-400">${formatCLP(item.precio_producto)} c/u</p>
                 </div>
-
-                {/* Controles de Cantidad */}
+                {/* --- Funciones de contexto actualizadas --- */}
                 <div className="flex items-center gap-2 border border-neutral-700 rounded-lg p-1">
                   <button
-                    onClick={() => decreaseQuantity(item.id)}
+                    onClick={() => decreaseQuantity(item)}
                     className="px-2 py-1 rounded hover:bg-neutral-700 disabled:opacity-50"
-                    disabled={item.quantity === 1}
                   >
                     -
                   </button>
-                  <span className="w-8 text-center font-bold">
-                    {item.quantity}
-                  </span>
+                  <span className="w-8 text-center font-bold">{item.cantidad}</span>
                   <button
-                    onClick={() => increaseQuantity(item.id)}
+                    onClick={() => increaseQuantity(item)}
                     className="px-2 py-1 rounded hover:bg-neutral-700"
                   >
                     +
                   </button>
                 </div>
-
-                {/* Subtotal y Eliminar */}
                 <div className="flex flex-col items-end ml-4">
                   <span className="font-bold text-lg w-24 text-right">
-                    ${formatCLP(item.precio * item.quantity)}
+                    ${formatCLP(item.subtotal)} {/* Usamos el subtotal del API */}
                   </span>
                   <button
-                    onClick={() => removeFromCart(item.id)}
+                    onClick={() => removeFromCart(item)}
                     className="text-xs text-red-500 hover:text-red-400 mt-1"
                   >
                     Eliminar
@@ -191,12 +163,10 @@ function Carrito() {
             ))}
           </div>
 
-          {/* Columna de Resumen (Total) */}
+          {/* Columna de Resumen */}
           <div className="lg:col-span-1">
             <div className="bg-neutral-900 border border-neutral-800 rounded-xl shadow-lg p-6 sticky top-28">
-              <h2 className="text-2xl font-semibold border-b border-neutral-700 pb-4 mb-4">
-                Resumen de Compra
-              </h2>
+              <h2 className="text-2xl font-semibold border-b border-neutral-700 pb-4 mb-4">Resumen de Compra</h2>
               <div className="space-y-3">
                 <div className="flex justify-between text-neutral-300">
                   <span>Subtotal ({itemCount} items)</span>
