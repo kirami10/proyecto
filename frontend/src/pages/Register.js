@@ -1,21 +1,14 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import API_URL from "../api";
+import toast from 'react-hot-toast'; // <-- AÑADIR IMPORT
 
-// --- Funciones Auxiliares ---
-
-// NUEVO: Formatea nombres y apellidos (solo letras y espacios, capitaliza cada palabra)
+// --- Funciones Auxiliares (sin cambios) ---
 const formatName = (name) => {
   if (!name) return "";
-
-  // 1. Permitir solo letras (incluyendo tildes y ñ) y espacios
   let value = name.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, "");
-
-  // 2. Capitalizar la primera letra de cada palabra
   return value.replace(/\b\w/g, (l) => l.toUpperCase());
 };
-
-// Formatea el RUT (Ej: 12.345.678-K)
 const formatRut = (rut) => {
   if (!rut) return "";
   let value = rut.replace(/[^0-9kK]/g, "").toUpperCase();
@@ -29,8 +22,6 @@ const formatRut = (rut) => {
   const dv = value.slice(-1);
   return `${body.replace(/\B(?=(\d{3})+(?!\d))/g, ".")}-${dv}`;
 };
-
-// Valida RUT (Módulo 11 + reglas negocio)
 const validateRut = (rut) => {
   if (!rut) return false;
   const cleanRut = rut.replace(/[^0-9kK]/g, "").toUpperCase();
@@ -47,8 +38,6 @@ const validateRut = (rut) => {
   const res = 11 - (sum % 11);
   return dv === (res === 11 ? "0" : res === 10 ? "K" : res.toString());
 };
-
-// Formatea número telefónico chileno (Ej: 9 1234 5678)
 const formatPhoneNumber = (phone) => {
   if (!phone) return "";
   let value = phone.replace(/\D/g, "");
@@ -60,8 +49,7 @@ const formatPhoneNumber = (phone) => {
   }
   return value;
 };
-
-// --- Componentes Reutilizables ---
+// --- Fin Funciones Auxiliares ---
 
 const PhoneInput = ({ value, onChange, placeholder }) => (
   <div className="flex items-center bg-neutral-800 border border-neutral-600 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-blue-500">
@@ -77,8 +65,6 @@ const PhoneInput = ({ value, onChange, placeholder }) => (
   </div>
 );
 
-// --- Componente Principal ---
-
 function Register() {
   const [nombre, setNombre] = useState("");
   const [apellidos, setApellidos] = useState("");
@@ -89,13 +75,12 @@ function Register() {
   const [numeroEmergencia, setNumeroEmergencia] = useState("");
   const [password, setPassword] = useState("");
   const [password2, setPassword2] = useState("");
+  const [loading, setLoading] = useState(false); // <-- AÑADIDO
 
   const navigate = useNavigate();
 
-  // Nuevos handlers para Nombre y Apellidos
   const handleNameChange = (e) => setNombre(formatName(e.target.value));
   const handleLastNameChange = (e) => setApellidos(formatName(e.target.value));
-
   const handleRutChange = (e) => setRut(formatRut(e.target.value));
   const handlePersonalPhoneChange = (e) =>
     setNumeroPersonal(formatPhoneNumber(e.target.value));
@@ -104,23 +89,26 @@ function Register() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    // --- MODIFICADO: Reemplazamos todos los alert() con toast.error() ---
     if (password !== password2) {
-      alert("Las contraseñas no coinciden");
+      toast.error("Las contraseñas no coinciden");
       return;
     }
     if (!validateRut(rut)) {
-      alert("RUT inválido.");
+      toast.error("RUT inválido.");
       return;
     }
     if (numeroPersonal.replace(/\D/g, "").length !== 9) {
-      alert("El número personal debe tener 9 dígitos.");
+      toast.error("El número personal debe tener 9 dígitos.");
       return;
     }
     if (numeroEmergencia.replace(/\D/g, "").length !== 9) {
-      alert("El número de emergencia debe tener 9 dígitos.");
+      toast.error("El número de emergencia debe tener 9 dígitos.");
       return;
     }
+    // --- FIN MODIFICACIÓN ---
 
+    setLoading(true); // <-- AÑADIDO
     try {
       const response = await fetch(`${API_URL}/register/`, {
         method: "POST",
@@ -139,20 +127,29 @@ function Register() {
       });
 
       if (response.ok) {
-        alert("Usuario registrado correctamente");
+        toast.success("Usuario registrado correctamente"); // <-- MODIFICADO
         navigate("/login");
       } else {
         const data = await response.json();
-        alert("Error al registrar: " + (data.detail || JSON.stringify(data)));
+        // --- MODIFICADO: Mostrar errores de la API ---
+        if (data.rut) {
+          toast.error(data.rut[0]);
+        } else if (data.username) {
+          toast.error(data.username[0]);
+        } else {
+          toast.error("Error al registrar: " + (data.detail || JSON.stringify(data)));
+        }
+        // --- FIN MODIFICACIÓN ---
       }
     } catch (err) {
       console.error(err);
-      alert("Error de conexión.");
+      toast.error("Error de conexión."); // <-- MODIFICADO
     }
+    setLoading(false); // <-- AÑADIDO
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-neutral-950 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-neutral-950 p-6">
       <form
         onSubmit={handleSubmit}
         className="w-full max-w-lg bg-neutral-900 border border-neutral-700 p-8 rounded-xl shadow-xl shadow-black/40"
@@ -165,14 +162,14 @@ function Register() {
             className="bg-neutral-800 border border-neutral-600 text-white px-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             placeholder="Nombre"
             value={nombre}
-            onChange={handleNameChange} // Usamos el nuevo handler
+            onChange={handleNameChange}
             required
           />
           <input
             className="bg-neutral-800 border border-neutral-600 text-white px-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             placeholder="Apellidos"
             value={apellidos}
-            onChange={handleLastNameChange} // Usamos el nuevo handler
+            onChange={handleLastNameChange}
             required
           />
           <input
@@ -229,9 +226,10 @@ function Register() {
         </div>
         <button
           type="submit"
-          className="w-full mt-6 bg-blue-600 hover:bg-blue-700 transition py-2 rounded-lg text-white font-semibold"
+          disabled={loading} // <-- AÑADIDO
+          className="w-full mt-6 bg-blue-600 hover:bg-blue-700 transition py-2 rounded-lg text-white font-semibold disabled:opacity-50"
         >
-          Registrarse
+          {loading ? "Registrando..." : "Registrarse"} {/* <-- MODIFICADO */}
         </button>
       </form>
     </div>

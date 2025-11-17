@@ -84,3 +84,35 @@ class CarritoItem(models.Model):
 
     def __str__(self): # <-- Corregido de 'str' a '__str__'
         return f"{self.producto.nombre} x {self.cantidad}"
+    
+class Pedido(models.Model):
+    """
+    Representa una orden de compra de productos completada (pagada).
+    """
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="pedidos")
+    orden_compra = models.CharField(max_length=100, unique=True) # El buy_order de Webpay
+    monto_total = models.IntegerField()
+    creado_en = models.DateTimeField(auto_now_add=True)
+    
+    ESTADO_CHOICES = (
+        ('PAGADO', 'Pagado'),
+        ('PENDIENTE', 'Pendiente'),
+        ('FALLIDO', 'Fallido'),
+    )
+    estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='PAGADO')
+
+    def __str__(self):
+        return f"Pedido {self.id} de {self.user.username}"
+
+class PedidoItem(models.Model):
+    """
+    Representa un item dentro de un Pedido.
+    """
+    pedido = models.ForeignKey(Pedido, on_delete=models.CASCADE, related_name="items")
+    producto = models.ForeignKey(Producto, on_delete=models.PROTECT) # Proteger para no borrar producto si está en un pedido
+    cantidad = models.PositiveIntegerField(default=1)
+    # Guardamos el precio al momento de la compra
+    precio_al_momento_compra = models.IntegerField() 
+
+    def __str__(self):
+        return f"{self.producto.nombre} x {self.cantidad}"

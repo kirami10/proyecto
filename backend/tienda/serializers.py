@@ -1,7 +1,11 @@
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth.models import User
-from .models import Profile, Producto, Plan, Suscripcion, Carrito, CarritoItem # <--- MODIFICADO
+# --- MODIFICADO: Añadimos Pedido y PedidoItem ---
+from .models import (
+    Profile, Producto, Plan, Suscripcion, Carrito, CarritoItem, 
+    Pedido, PedidoItem
+)
 
 # --- Serializador para Token JWT (con roles) ---
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
@@ -104,7 +108,7 @@ class SuscripcionSerializer(serializers.ModelSerializer):
         fields = ['id', 'plan', 'fecha_inicio', 'fecha_vencimiento', 'activa']
 
 
-# --- AÑADIDO: Serializers de Carrito ---
+# --- Serializers de Carrito ---
 class CarritoItemSerializer(serializers.ModelSerializer):
     nombre_producto = serializers.CharField(source='producto.nombre', read_only=True)
     precio_producto = serializers.IntegerField(source='producto.precio', read_only=True)
@@ -126,3 +130,32 @@ class CarritoSerializer(serializers.ModelSerializer):
     def get_total(self, obj):
         # Calcula el total sumando subtotales de items
         return sum(item.subtotal for item in obj.items.all())
+
+
+# --- AÑADIDO: Serializers de Pedido ---
+
+class PedidoItemSerializer(serializers.ModelSerializer):
+    """
+    Serializa un item de un pedido (lo que el usuario compró).
+    """
+    # Obtenemos el nombre y la imagen del producto relacionado
+    nombre_producto = serializers.CharField(source='producto.nombre', read_only=True)
+    imagen_producto = serializers.ImageField(source='producto.imagen', read_only=True)
+
+    class Meta:
+        model = PedidoItem
+        fields = ['id', 'producto', 'nombre_producto', 'imagen_producto', 
+                  'cantidad', 'precio_al_momento_compra']
+
+
+class PedidoSerializer(serializers.ModelSerializer):
+    """
+    Serializa un pedido completo, incluyendo sus items.
+    """
+    # Usamos el PedidoItemSerializer anidado para mostrar los items
+    items = PedidoItemSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Pedido
+        fields = ['id', 'user', 'orden_compra', 'monto_total', 
+                  'creado_en', 'estado', 'items']

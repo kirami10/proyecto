@@ -1,6 +1,7 @@
 import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import { useAuth } from '../AuthContext';
-import API_URL from '../api'; // Asegúrate de que API_URL esté importado
+import API_URL from '../api';
+import toast from 'react-hot-toast'; // <-- AÑADIR IMPORT
 
 const CartContext = createContext();
 export const useCart = () => useContext(CartContext);
@@ -8,22 +9,18 @@ export const useCart = () => useContext(CartContext);
 export const CartProvider = ({ children }) => {
   const { authToken } = useAuth();
   const [cartItems, setCartItems] = useState([]);
-  const [cartTotal, setCartTotal] = useState(0); // <-- Estado para el total
-  const [itemCount, setItemCount] = useState(0); // <-- Estado para la cantidad
+  const [cartTotal, setCartTotal] = useState(0);
+  const [itemCount, setItemCount] = useState(0);
 
-  // --- FUNCIÓN ÚNICA PARA ACTUALIZAR EL ESTADO ---
-  // El backend siempre devuelve el carrito actualizado,
-  // así que usamos esta función para actualizar el estado de React.
   const updateCartState = (cartData) => {
     setCartItems(cartData.items || []);
     setCartTotal(cartData.total || 0);
     setItemCount((cartData.items || []).reduce((total, item) => total + item.cantidad, 0));
   };
 
-  // --- CARGAR CARRITO DEL BACKEND ---
   const fetchCart = useCallback(async () => {
     if (!authToken) {
-      updateCartState({}); // Limpia el carrito si no hay token
+      updateCartState({}); 
       return;
     }
     try {
@@ -41,11 +38,13 @@ export const CartProvider = ({ children }) => {
 
   useEffect(() => {
     fetchCart();
-  }, [fetchCart]); // Se ejecuta al cargar y cada vez que authToken cambia
+  }, [fetchCart]); 
 
-  // --- FUNCIONES DEL CARRITO (MODIFICADAS para usar la respuesta de la API) ---
   const addToCart = async (producto) => {
-    if (!authToken) return alert('Debes iniciar sesión para agregar productos');
+    if (!authToken) {
+      toast.error('Debes iniciar sesión para agregar productos'); // <-- MODIFICADO
+      return;
+    }
     try {
       const res = await fetch(`${API_URL}/carrito/agregar/`, {
         method: 'POST',
@@ -55,13 +54,16 @@ export const CartProvider = ({ children }) => {
         },
         body: JSON.stringify({ producto_id: producto.id, cantidad: 1 }),
       });
-      const data = await res.json(); // <-- El backend devuelve el carrito actualizado
+      const data = await res.json(); 
       if (res.ok) {
-        updateCartState(data); // Actualiza el estado con la respuesta
-        alert(`${producto.nombre} ha sido añadido al carrito!`);
+        updateCartState(data); 
+        toast.success(`${producto.nombre} añadido al carrito`); // <-- MODIFICADO
+      } else {
+        toast.error('Error al añadir producto'); // <-- MODIFICADO
       }
     } catch (err) {
       console.error(err);
+      toast.error('Error de conexión'); // <-- MODIFICADO
     }
   };
 
@@ -76,7 +78,7 @@ export const CartProvider = ({ children }) => {
         },
         body: JSON.stringify({ cantidad: item.cantidad + 1 }),
       });
-      const data = await res.json(); // <-- El backend devuelve el carrito actualizado
+      const data = await res.json();
       if (res.ok) updateCartState(data);
     } catch (err) {
       console.error(err);
@@ -87,7 +89,6 @@ export const CartProvider = ({ children }) => {
     if (!authToken) return;
     const nuevaCantidad = item.cantidad - 1;
     
-    // Si la cantidad es 0, usamos la función de eliminar
     if (nuevaCantidad <= 0) return removeFromCart(item);
     
     try {
@@ -99,7 +100,7 @@ export const CartProvider = ({ children }) => {
         },
         body: JSON.stringify({ cantidad: nuevaCantidad }),
       });
-      const data = await res.json(); // <-- El backend devuelve el carrito actualizado
+      const data = await res.json();
       if (res.ok) updateCartState(data);
     } catch (err) {
       console.error(err);
@@ -113,35 +114,67 @@ export const CartProvider = ({ children }) => {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${authToken}` },
       });
-      const data = await res.json(); // <-- El backend devuelve el carrito actualizado
+      const data = await res.json();
       if (res.ok) updateCartState(data);
     } catch (err) {
       console.error(err);
     }
   };
 
-  // --- LÓGICA DE VACIAR CARRITO (Fusionada) ---
   const clearCart = async (confirm = true) => {
     if (!authToken) return;
-    if (confirm && !window.confirm('¿Seguro que quieres vaciar el carrito?')) return;
     
-    try {
-      // Usamos Promise.all para borrar todos los items
-      // (Una mejor solución a futuro es un endpoint '.../carrito/vaciar/')
-      await Promise.all(
-        cartItems.map((item) =>
-          fetch(`${API_URL}/carrito/item/${item.id}/eliminar/`, {
-            method: 'DELETE',
-            headers: { Authorization: `Bearer ${authToken}` },
-          })
-        )
-      );
-      // Cuando todas las promesas terminan, volvemos a pedir el carrito (que estará vacío)
-      fetchCart();
-    } catch (err) {
-      console.error(err);
+    // --- MODIFICADO: Usamos toast.custom para el confirm ---
+    if (confirm) {
+      toast((t) => (
+        <div className="bg-white text-black p-4 rounded-lg shadow-lg">
+          <p className="font-semibold mb-2">¿Vaciar Carrito?</p>
+          <p className="mb-4">¿Seguro que quieres eliminar todos los items?</p>
+          <div className="flex gap-2">
+            <button
+              className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded-md text-sm"
+              onClick={() => {
+                executeClearCart();
+                toast.dismiss(t.id);
+              }}
+            >
+              Sí, vaciar
+            </button>
+            <button
+              className="bg-neutral-200 hover:bg-neutral-300 text-black px-3 py-1 rounded-md text-sm"
+              onClick={() => toast.dismiss(t.id)}
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      ), { duration: 6000 });
+    } else {
+      executeClearCart();
     }
   };
+  
+  // Función interna para no duplicar código
+  const executeClearCart = async () => {
+    if (!authToken) return;
+    try {
+      const res = await fetch(`${API_URL}/carrito/vaciar/`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+      const data = await res.json();
+      if (res.ok) {
+        updateCartState(data);
+        toast.success('Carrito vaciado'); // <-- MODIFICADO
+      } else {
+        toast.error('Error al vaciar el carrito'); // <-- MODIFICADO
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('Error de conexión'); // <-- MODIFICADO
+    }
+  };
+  // --- FIN DE LA MODIFICACIÓN ---
 
   const value = {
     cartItems,
@@ -150,8 +183,8 @@ export const CartProvider = ({ children }) => {
     decreaseQuantity,
     removeFromCart,
     clearCart,
-    itemCount, // <-- Ahora viene del estado
-    totalPrice: cartTotal, // <-- Ahora viene del estado
+    itemCount,
+    totalPrice: cartTotal,
     fetchCart,
   };
 

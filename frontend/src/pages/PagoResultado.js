@@ -6,22 +6,45 @@ function PagoResultado() {
   const [searchParams] = useSearchParams();
   const status = searchParams.get("status");
   const amount = searchParams.get("amount");
-  const buyOrder = searchParams.get("buy_order");
+  const buyOrder = searchParams.get("buy_order") || ""; // <-- Asegurarnos de que no sea null
   const { clearCart } = useCart();
   const [processed, setProcessed] = useState(false);
 
   useEffect(() => {
-    // --- AÑADIDO: Limpiamos la bandera de "pago en proceso" ---
-    // Ya sea éxito o fracaso, si llegamos aquí, el proceso terminó.
     sessionStorage.removeItem('webpay_in_progress');
-    // --- FIN DE LÍNEA AÑADIDA ---
 
-    if (status === "success" && !processed) {
-      // Si el pago fue exitoso, limpiamos el carrito (sin confirmación)
+    // Solo limpiamos el carrito si fue una compra de carrito (CART-)
+    if (status === "success" && buyOrder.startsWith("CART-") && !processed) {
       clearCart(false); 
       setProcessed(true);
     }
-  }, [status, clearCart, processed]);
+  }, [status, clearCart, processed, buyOrder]); // <-- Añadido buyOrder
+
+  // --- AÑADIDO: Lógica para el botón de éxito ---
+  const renderSuccessLink = () => {
+    if (buyOrder.startsWith("PLAN-")) {
+      return (
+        <Link to="/mi-plan" className="block w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition">
+          Ver Mi Plan
+        </Link>
+      );
+    }
+    if (buyOrder.startsWith("CART-")) {
+      return (
+        <Link to="/historial" className="block w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition">
+          Ver Mis Pedidos
+        </Link>
+      );
+    }
+    // Fallback por si acaso
+    return (
+      <Link to="/profile" className="block w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition">
+        Ir al Perfil
+      </Link>
+    );
+  };
+  // --- FIN AÑADIDO ---
+
 
   return (
     <div className="min-h-screen bg-neutral-950 text-white flex items-center justify-center p-6">
@@ -47,17 +70,16 @@ function PagoResultado() {
               </p>
             </div>
 
-            <Link to="/profile" className="block w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition">
-              Ver mis Pedidos
-            </Link>
+            {renderSuccessLink()} {/* <-- MODIFICADO */}
+
           </>
         ) : (
           <>
              <div className="w-20 h-20 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
-              <svg className="w-10 h-10 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
-              </svg>
-            </div>
+               <svg className="w-10 h-10 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+               </svg>
+             </div>
             <h1 className="text-3xl font-bold text-white mb-2">Pago Fallido</h1>
             <p className="text-neutral-400 mb-6">
               {status === "aborted" || status === "aborted_by_user" 

@@ -1,23 +1,19 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
-import { Link } from "react-router-dom"; // <--- AÑADIDO Link
+import { Link } from "react-router-dom";
 import QRCode from "react-qr-code";
 import API_URL from "../api";
+import toast from 'react-hot-toast'; // <-- AÑADIR IMPORT
 
-// --- Funciones de Formato y Validación (Reutilizadas y adaptadas) ---
-
-// Formatea nombres: Capitaliza cada palabra, solo letras y espacios.
+// --- Funciones de Formato (sin cambios) ---
 const formatName = (name) => {
   if (!name) return "";
   let value = name.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, "");
   return value.replace(/\b\w/g, (l) => l.toUpperCase());
 };
-
-// Formatea el número INTERNO (los 9 dígitos después del +56) para edición
 const formatInternalPhone = (phone) => {
   if (!phone) return "";
-  let value = phone.replace(/\D/g, ""); // Solo números
-  if (value.length > 9) value = value.slice(0, 9); // Máximo 9 dígitos
-
+  let value = phone.replace(/\D/g, ""); 
+  if (value.length > 9) value = value.slice(0, 9); 
   if (value.length > 5) {
     return `${value.slice(0, 1)} ${value.slice(1, 5)} ${value.slice(5)}`;
   } else if (value.length > 1) {
@@ -25,8 +21,6 @@ const formatInternalPhone = (phone) => {
   }
   return value;
 };
-
-// Formatea el número COMPLETO para mostrarlo cuando NO se está editando
 const formatFullPhoneDisplay = (fullPhone) => {
   if (!fullPhone) return "N/A";
   const cleaned = fullPhone.replace(/\D/g, "");
@@ -35,17 +29,23 @@ const formatFullPhoneDisplay = (fullPhone) => {
   }
   return fullPhone;
 };
-
-// --- AÑADIDO: Helper para formatear fechas ---
 const formatFecha = (isoString) => {
     if (!isoString) return "";
     const date = new Date(isoString);
-    return date.toLocaleDateString("es-CL", {
+    const options = {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
-    });
+    };
+    return date.toLocaleDateString("es-CL", options);
 };
+const getImageUrl = (path) => {
+  if (!path) return null;
+  const BACKEND_BASE_URL = "http://localhost:8000";
+  return path.startsWith("http") ? path : `${BACKEND_BASE_URL}${path.startsWith("/") ? path : "/" + path}`;
+};
+// --- Fin Funciones Formato ---
+
 
 // --- Componente ProfileField (Sin cambios) ---
 const ProfileField = ({ label, name, value, onChange, type = "text", isEditing, readOnly = false }) => {
@@ -87,6 +87,7 @@ const ProfileField = ({ label, name, value, onChange, type = "text", isEditing, 
     </div>
   );
 };
+// --- Fin ProfileField ---
 
 
 // --- Componente Principal ---
@@ -98,12 +99,9 @@ function Profile({ token }) {
   const [imageError, setImageError] = useState(false);
   const [formData, setFormData] = useState({});
   const fileInputRef = useRef(null);
-
-  // --- AÑADIDO: Estado para el plan activo ---
   const [activePlan, setActivePlan] = useState(null);
 
   const fetchProfile = useCallback(async () => {
-    setLoading(true); // Se pone en true al inicio de la carga
     try {
       const response = await fetch(`${API_URL}/profile/`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -116,19 +114,17 @@ function Profile({ token }) {
         console.error("Error al obtener perfil");
       }
     } catch (error) {
-      console.error("Error de red:", error);
+      console.error("Error de red (perfil):", error);
     } 
-    // No ponemos setLoading(false) aquí, esperamos a que ambas cargas terminen
   }, [token]);
 
-  // --- AÑADIDO: Función para cargar el plan activo ---
   const fetchActivePlan = useCallback(async () => {
     try {
       const response = await fetch(`${API_URL}/mi-plan/`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (response.ok) {
-        const data = await response.json(); // Esto será la suscripción o null
+        const data = await response.json(); 
         setActivePlan(data);
       }
     } catch (error) {
@@ -136,23 +132,19 @@ function Profile({ token }) {
     }
   }, [token]);
 
-
   useEffect(() => {
     if (token) {
         setLoading(true);
-        // Hacemos ambas peticiones
         Promise.all([
             fetchProfile(),
             fetchActivePlan()
         ]).finally(() => {
-            // Marcamos como cargado solo cuando ambas terminan
             setLoading(false);
         });
     }
-  }, [token, fetchProfile, fetchActivePlan]); // <--- MODIFICADO
+  }, [token, fetchProfile, fetchActivePlan]); 
 
 
-  // --- Manejador de Cambios en Inputs con Validación ---
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     let formattedValue = value;
@@ -164,7 +156,6 @@ function Profile({ token }) {
     setFormData(prev => ({ ...prev, [name]: formattedValue }));
   };
 
-  // --- Activar/Desactivar Modo Edición ---
   const toggleEdit = () => {
     if (!isEditing) {
       const preparePhoneForEdit = (fullPhone) => {
@@ -187,7 +178,6 @@ function Profile({ token }) {
     setIsEditing(!isEditing);
   };
 
-  // --- Guardar Perfil ---
   const handleSaveProfile = async () => {
     const finalizePhoneForSubmit = (internalPhone) => {
         const digits = internalPhone.replace(/\D/g, "");
@@ -201,14 +191,20 @@ function Profile({ token }) {
         numero_personal: finalizePhoneForSubmit(formData.numero_personal),
         numero_emergencia: finalizePhoneForSubmit(formData.numero_emergencia)
     };
+    
+    // --- MODIFICADO: Reemplazamos alert() por toast.error() ---
     if (formData.numero_personal && formData.numero_personal.replace(/\D/g, "").length !== 9) {
-        alert("El teléfono personal debe tener 9 dígitos.");
+        toast.error("El teléfono personal debe tener 9 dígitos.");
         return;
     }
      if (formData.numero_emergencia && formData.numero_emergencia.replace(/\D/g, "").length !== 9) {
-        alert("El teléfono de emergencia debe tener 9 dígitos.");
+        toast.error("El teléfono de emergencia debe tener 9 dígitos.");
         return;
     }
+    // --- FIN MODIFICACIÓN ---
+
+    const loadingToast = toast.loading('Guardando...'); // <-- AÑADIDO
+
     try {
       const response = await fetch(`${API_URL}/profile/`, {
         method: "PATCH",
@@ -218,44 +214,57 @@ function Profile({ token }) {
         },
         body: JSON.stringify(dataToSend),
       });
+      
+      toast.dismiss(loadingToast); // <-- Cerramos el toast
+
       if (response.ok) {
-        alert("Perfil actualizado correctamente");
+        toast.success("Perfil actualizado correctamente"); // <-- MODIFICADO
         setIsEditing(false);
         fetchProfile();
       } else {
         const errData = await response.json();
-        alert("Error al actualizar: " + JSON.stringify(errData));
+        toast.error("Error al actualizar: " + JSON.stringify(errData)); // <-- MODIFICADO
       }
     } catch (error) {
+      toast.dismiss(loadingToast); // <-- Cerramos el toast si hay error
       console.error("Error:", error);
-      alert("Error de conexión");
+      toast.error("Error de conexión"); // <-- MODIFICADO
     }
   };
 
-  // --- Manejadores de Imagen (sin cambios) ---
   const handleFileChange = async (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      setUploading(true);
-      const data = new FormData();
-      data.append("avatar", file);
-      try {
-          const response = await fetch(`${API_URL}/profile/`, {
-              method: "PATCH",
-              headers: { Authorization: `Bearer ${token}` },
-              body: data,
-          });
-          if (response.ok) { fetchProfile(); }
-          else { alert("Error al subir imagen"); }
-      } catch (error) { console.error(error); alert("Error de red"); }
-      finally { setUploading(false); }
+       const file = e.target.files[0];
+       if (!file) return;
+
+       setUploading(true);
+       const loadingToast = toast.loading('Subiendo imagen...'); // <-- AÑADIDO
+
+       const data = new FormData();
+       data.append("avatar", file);
+       try {
+           const response = await fetch(`${API_URL}/profile/`, {
+               method: "PATCH",
+               headers: { Authorization: `Bearer ${token}` },
+               body: data,
+           });
+           
+           toast.dismiss(loadingToast); // <-- Cerramos el toast
+
+           if (response.ok) { 
+             fetchProfile();
+             toast.success('Avatar actualizado'); // <-- AÑADIDO
+           }
+           else { 
+             toast.error("Error al subir imagen"); // <-- MODIFICADO
+           }
+       } catch (error) { 
+         toast.dismiss(loadingToast); // <-- Cerramos el toast si hay error
+         console.error(error); 
+         toast.error("Error de red"); // <-- MODIFICADO
+       }
+       finally { setUploading(false); }
   };
   const handleAvatarClick = () => !isEditing && fileInputRef.current.click();
-  const getImageUrl = (path) => {
-      if (!path) return null;
-      const BACKEND_BASE_URL = "http://localhost:8000";
-      return path.startsWith("http") ? path : `${BACKEND_BASE_URL}${path.startsWith("/") ? path : "/" + path}`;
-  };
 
   if (loading || !profile) {
     return (
@@ -276,9 +285,8 @@ function Profile({ token }) {
   const qrData = `Nombre: ${profile.nombre} ${profile.apellidos}\nRUT: ${profile.rut}\nEmail: ${profile.email}\nTel: ${profile.numero_personal}`;
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-neutral-950 p-6">
+    <div className="min-h-screen flex flex-col items-center bg-neutral-950 p-6">
       <div className="w-full max-w-lg relative">
-        {/* Botones de Acción Flotantes */}
         <div className="absolute top-4 right-4 z-10">
           {!isEditing ? (
             <button onClick={toggleEdit} className="bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white p-2 rounded-full transition-all shadow-lg active:scale-95" title="Editar">
@@ -331,13 +339,11 @@ function Profile({ token }) {
             <ProfileField label="Correo" name="email" value={isEditing ? formData.email : profile.email} onChange={handleInputChange} type="email" isEditing={isEditing} />
             <ProfileField label="RUT" name="rut" value={profile.rut} readOnly={true} isEditing={isEditing} />
             
-            {/* --- AÑADIDO: Sección de Plan Activo --- */}
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-4 border-b border-neutral-800">
                 <label className="text-neutral-400 font-medium mb-1 sm:mb-0 flex-shrink-0 sm:w-1/3">
                     Plan Activo:
                 </label>
                 <div className="sm:w-2/3 text-right">
-                    {/* Verificamos que exista la suscripción Y el plan dentro de ella */}
                     {activePlan && activePlan.plan ? (
                         <div>
                             <span className="text-white font-semibold">{activePlan.plan.nombre}</span>
@@ -352,7 +358,6 @@ function Profile({ token }) {
                     )}
                 </div>
             </div>
-            {/* --- FIN DE SECCIÓN AÑADIDA --- */}
 
             <ProfileField label="Tel. Personal" name="numero_personal" value={isEditing ? formData.numero_personal : profile.numero_personal} onChange={handleInputChange} type="phone" isEditing={isEditing} />
             <ProfileField label="Emergencia" name="numero_emergencia" value={isEditing ? formData.numero_emergencia : profile.numero_emergencia} onChange={handleInputChange} type="phone" isEditing={isEditing} />

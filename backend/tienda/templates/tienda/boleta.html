@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Boleta Pedido {{ pedido.id }}</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 2cm;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            color: #333;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .header h1 {
+            margin: 0;
+            color: #1a1a1a;
+        }
+        .logo {
+            font-size: 28px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .info {
+            margin-bottom: 20px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+        }
+        .info p {
+            margin: 5px 0;
+            font-size: 14px;
+        }
+        .info-left {
+            float: left;
+            width: 60%;
+        }
+        .info-right {
+            float: right;
+            width: 40%;
+            text-align: right;
+        }
+        .clearfix {
+            clear: both;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: left;
+            font-size: 14px;
+        }
+        th {
+            background-color: #f9f9f9;
+        }
+        .text-right {
+            text-align: right;
+        }
+        .total {
+            margin-top: 30px;
+            float: right;
+            width: 40%;
+        }
+        .total p {
+            font-size: 16px;
+            font-weight: bold;
+            margin: 5px 0;
+            display: flex;
+            justify-content: space-between;
+        }
+        .total p span {
+            text-align: right;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="logo">Coup Fitness</div>
+        <h1>Comprobante de Compra</h1>
+    </div>
+
+    <div class="info">
+        <div class="info-left">
+            <p><strong>Cliente:</strong> {{ pedido.user.profile.nombre }} {{ pedido.user.profile.apellidos }}</p>
+            <p><strong>Email:</strong> {{ pedido.user.email }}</p>
+            <p><strong>RUT:</strong> {{ pedido.user.profile.rut }}</p>
+        </div>
+        <div class="info-right">
+            <p><strong>Nº Pedido:</strong> {{ pedido.id }}</p>
+            <p><strong>Orden de Compra:</strong> {{ pedido.orden_compra }}</p>
+            <p><strong>Fecha de Compra:</strong> {{ pedido.creado_en|date:"d/m/Y H:i" }}</p>
+        </div>
+        <div class="clearfix"></div>
+    </div>
+
+    <h3>Detalle del Pedido</h3>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Producto</th>
+                <th>Cantidad</th>
+                <th class="text-right">Precio Unitario</th>
+                <th class="text-right">Subtotal</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in pedido.items.all %}
+            <tr>
+                <td>{{ item.producto.nombre }}</td>
+                <td class="text-right">{{ item.cantidad }}</td>
+                <td class="text-right">${{ item.precio_al_momento_compra|floatformat:0 }}</td>
+                <td class="text-right">${{ item.subtotal|floatformat:0 }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="total">
+        <p>
+            <span>TOTAL:</span>
+            <span>${{ pedido.monto_total|floatformat:0 }}</span>
+        </p>
+    </div>
+</body>
+</html>

@@ -16,7 +16,7 @@ from rest_framework.decorators import api_view
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from django.shortcuts import get_object_or_404
-
+from .utils import render_to_pdf
 
 # ... (Vista MyTokenObtainPairView sin cambios) ...
 class MyTokenObtainPairView(TokenObtainPairView):
@@ -202,3 +202,69 @@ def eliminar_item_carrito(request, item_id):
     carrito = Carrito.objects.get(user=request.user)
     serializer = CarritoSerializer(carrito)
     return Response(serializer.data)
+
+@api_view(['POST']) # Usamos POST por seguridad
+@permission_classes([IsAuthenticated])
+def vaciar_carrito(request):
+    """
+    Elimina todos los items del carrito del usuario autenticado.
+    """
+    try:
+        carrito = Carrito.objects.get(user=request.user)
+        carrito.items.all().delete() # Borra todos los CarritoItem asociados
+        
+        # Devuelve el carrito actualizado (ahora vacío)
+        serializer = CarritoSerializer(carrito)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    except Carrito.DoesNotExist:
+        # Esto no debería pasar si se usa get_or_create, pero por si acaso
+        return Response({"error": "Carrito no encontrado"}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+from .models import Pedido # Asegúrate de importar Pedido
+from .serializers import PedidoSerializer # Asegúrate de importar PedidoSerializer
+
+class HistorialPedidosView(APIView):
+    """
+    Vista para que el usuario autenticado vea su historial de pedidos.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        # Obtenemos los pedidos del usuario, del más reciente al más antiguo
+        pedidos = Pedido.objects.filter(user=request.user).order_by('-creado_en')
+        
+        # Usamos many=True porque es una lista de pedidos
+        serializer = PedidoSerializer(pedidos, many=True, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def descargar_boleta(request, pedido_id):
+    """
+    Genera y devuelve la boleta en PDF para un pedido específico.
+    """
+    # 1. Obtenemos el pedido
+    pedido = get_object_or_404(Pedido, id=pedido_id)
+
+    # 2. !! IMPORTANTE: Verificación de seguridad !!
+    # Solo el dueño del pedido o un staff/admin pueden ver la boleta.
+    if pedido.user != request.user and not request.user.is_staff:
+        return Response({"error": "No autorizado"}, status=status.HTTP_403_FORBIDDEN)
+
+    # 3. Preparamos el contexto para la plantilla
+    context = {
+        'pedido': pedido,
+        # (Podemos añadir más datos si es necesario)
+    }
+
+    # 4. Añadimos subtotales a cada item (si no están en el modelo)
+    # (Lo hacemos aquí para que el template sea simple)
+    for item in context['pedido'].items.all():
+        item.subtotal = item.cantidad * item.precio_al_momento_compra
+
+    # 5. Renderizamos el PDF usando nuestra utilidad
+    pdf = render_to_pdf('tienda/boleta.html', context)
+    
+    return pdf

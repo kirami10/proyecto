@@ -91,6 +91,15 @@ function Navbar({ token, onLogout, role }) {
             >
               Mi Plan
             </Link>
+
+            {/* --- AÑADIDO: Enlace a Historial de Pedidos --- */}
+            <Link
+              to="/historial"
+              className="text-neutral-300 font-medium px-3 py-2 rounded-lg transition-all duration-200 hover:bg-neutral-800 hover:text-white"
+            >
+              Mis Pedidos
+            </Link>
+            
             <Link
               to="/profile"
               className="text-neutral-300 font-medium px-3 py-2 rounded-lg transition-all duration-200 hover:bg-neutral-800 hover:text-white"

@@ -1,7 +1,8 @@
-import React, { useEffect } from "react"; // <--- Añadido useEffect
-import { Link, useNavigate } from "react-router-dom"; // <--- Añadido useNavigate
+import React, { useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../AuthContext";
+import toast from 'react-hot-toast'; // <-- AÑADIR IMPORT
 
 // --- Helpers de Formato ---
 const formatCLP = (value) => {
@@ -17,10 +18,9 @@ const getImageUrl = (path) => {
 
 function Carrito() {
   const { cartItems, removeFromCart, increaseQuantity, decreaseQuantity, clearCart, itemCount, totalPrice } = useCart();
-  const { authToken, user } = useAuth(); // <--- Añadido user
-  const navigate = useNavigate(); // <--- Añadido navigate
+  const { authToken, user } = useAuth(); 
+  const navigate = useNavigate(); 
 
-  // --- AÑADIDO: Lógica para manejar el "Botón Atrás" ---
   useEffect(() => {
     const inProgress = sessionStorage.getItem('webpay_in_progress');
     if (inProgress === 'true') {
@@ -28,19 +28,20 @@ function Carrito() {
       navigate('/resultado?status=aborted_by_user');
     }
   }, [navigate]);
-  // --- FIN DE LÓGICA AÑADIDA ---
 
 
-  // --- FUNCIÓN PARA PAGAR CON WEBPAY (CORREGIDA) ---
   const handlePago = async () => {
     if (!authToken || !user?.user_id) {
-      alert("No estás autenticado o tu ID no se pudo cargar. Por favor, inicia sesión.");
+      toast.error("No estás autenticado. Por favor, inicia sesión."); // <-- MODIFICADO
       return;
     }
     
-    // --- Lógica de buy_order y return_url corregida ---
-    const buy_order = `CART-USER-${user.user_id}-T-${Date.now()}`;
-    const return_url = "http://127.0.0.1:8000/api/webpay/return/"; // <-- URL del Backend
+    const buy_order = `C${user.user_id}T${Math.floor(Date.now() / 1000)}`;
+    const return_url = "http://127.0.0.1:8000/api/webpay/return/"; 
+
+    // --- AÑADIDO: toast.loading ---
+    const loadingToast = toast.loading('Conectando con Webpay...');
+    // --- FIN ADICIÓN ---
 
     try {
       const response = await fetch("http://127.0.0.1:8000/api/webpay/create/", {
@@ -51,9 +52,9 @@ function Carrito() {
         },
         body: JSON.stringify({
           amount: totalPrice,
-          session_id: "session_" + Math.floor(Math.random() * 1000000),
-          buy_order: buy_order, // <-- Corregido
-          return_url: return_url, // <-- Corregido
+          session_id: `C${user.user_id}T${Math.floor(Date.now() / 1000)}`,
+          buy_order: buy_order,
+          return_url: return_url, 
         }),
       });
 
@@ -62,13 +63,15 @@ function Carrito() {
       try {
         data = JSON.parse(text);
       } catch {
+        toast.dismiss(loadingToast); // <-- Cerramos el toast
         console.error("Respuesta no válida del backend:", text);
-        alert("Error en la respuesta del servidor. Revisa la consola.");
+        toast.error("Error en la respuesta del servidor."); // <-- MODIFICADO
         return;
       }
 
+      toast.dismiss(loadingToast); // <-- Cerramos el toast
+
       if (response.ok && data.url && data.token) {
-        // --- AÑADIDO: Seteo de sessionStorage ---
         sessionStorage.setItem('webpay_in_progress', 'true');
         
         const form = document.createElement("form");
@@ -82,15 +85,15 @@ function Carrito() {
         document.body.appendChild(form);
         form.submit();
       } else {
-        alert("No se pudo iniciar la transacción con Webpay.");
+        toast.error("No se pudo iniciar la transacción con Webpay."); // <-- MODIFICADO
         console.error("Error en respuesta de Webpay:", data);
       }
     } catch (error) {
+      toast.dismiss(loadingToast); // <-- Cerramos el toast si hay error
       console.error("Error al conectar con el backend:", error);
-      alert("Error al conectar con el servidor.");
+      toast.error("Error al conectar con el servidor."); // <-- MODIFICADO
     }
   };
-  // --- FIN DE FUNCIÓN MODIFICADA ---
 
   if (itemCount === 0) {
     return (
@@ -111,7 +114,6 @@ function Carrito() {
       <div className="container mx-auto max-w-4xl">
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-4xl font-bold">Tu Carrito</h1>
-          {/* Llamada a clearCart(true) para que pida confirmación */}
           <button onClick={() => clearCart(true)} className="text-sm text-neutral-400 hover:text-red-500 transition">
             Vaciar Carrito
           </button>
@@ -123,7 +125,6 @@ function Carrito() {
             {cartItems.map((item) => (
               <div key={item.id} className="flex items-center bg-neutral-900 border border-neutral-800 rounded-xl p-4 shadow-lg">
                 <img
-                  // --- Campos del nuevo serializador ---
                   src={getImageUrl(item.imagen_producto) || "https://placehold.co/100x100/374151/9ca3af?text=N/A"}
                   alt={item.nombre_producto}
                   className="w-20 h-20 sm:w-24 sm:h-24 object-cover rounded-lg"
@@ -132,7 +133,6 @@ function Carrito() {
                   <h3 className="text-lg font-semibold">{item.nombre_producto}</h3>
                   <p className="text-sm text-neutral-400">${formatCLP(item.precio_producto)} c/u</p>
                 </div>
-                {/* --- Funciones de contexto actualizadas --- */}
                 <div className="flex items-center gap-2 border border-neutral-700 rounded-lg p-1">
                   <button
                     onClick={() => decreaseQuantity(item)}
@@ -150,7 +150,7 @@ function Carrito() {
                 </div>
                 <div className="flex flex-col items-end ml-4">
                   <span className="font-bold text-lg w-24 text-right">
-                    ${formatCLP(item.subtotal)} {/* Usamos el subtotal del API */}
+                    ${formatCLP(item.subtotal)}
                   </span>
                   <button
                     onClick={() => removeFromCart(item)}

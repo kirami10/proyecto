@@ -1,33 +1,25 @@
 import React, { useState, useEffect, useRef } from "react";
 import API_URL from "../api";
+import toast from 'react-hot-toast'; // <-- AÑADIR IMPORT
 
 // --- Funciones Auxiliares ---
-
-// NUEVO: Formatea un número como moneda chilena (ej: 10000 -> 10.000)
 const formatCLP = (value) => {
-  // 1. Eliminar cualquier caracter que no sea dígito
   const cleanValue = value.replace(/\D/g, "");
-
-  // 2. Si está vacío, devolver string vacío
   if (cleanValue === "") return "";
-
-  // 3. Formatear con puntos de miles usando Intl.NumberFormat
-  // 'es-CL' usa puntos para miles automáticamente.
   return new Intl.NumberFormat("es-CL").format(parseInt(cleanValue, 10));
 };
 
-// NUEVO: Limpia el formato CLP para obtener el número entero (ej: 10.000 -> 10000)
 const cleanCLP = (formattedValue) => {
   return formattedValue.replace(/\./g, "");
 };
-
+// --- Fin Auxiliares ---
 
 function NewPost() {
   const [productos, setProductos] = useState([]);
   const [editingProduct, setEditingProduct] = useState(null);
   const [nombre, setNombre] = useState("");
   const [descripcion, setDescripcion] = useState("");
-  const [precio, setPrecio] = useState(""); // Guardaremos el valor formateado aquí para mostrarlo
+  const [precio, setPrecio] = useState("");
   const [stock, setStock] = useState("");
 
   const [selectedFiles, setSelectedFiles] = useState([]);
@@ -53,7 +45,6 @@ function NewPost() {
     fetchProductos();
   }, []);
 
-  // ... (Manejo de imágenes igual que antes) ...
   const handleImageChange = (e) => {
     const files = Array.from(e.target.files);
     if (files.length > 0) {
@@ -70,14 +61,10 @@ function NewPost() {
     setPreviewUrls((prev) => prev.filter((_, i) => i !== currentIndex));
     if (currentIndex >= previewUrls.length - 1) setCurrentIndex(Math.max(0, previewUrls.length - 2));
   };
-
-  // Handler para Stock (solo números, sin formato especial)
   const handleStockChange = (e) => {
     const value = e.target.value.replace(/\D/g, "");
     setStock(value);
   };
-
-  // NUEVO: Handler específico para Precio con formato CLP en tiempo real
   const handlePriceChange = (e) => {
     setPrecio(formatCLP(e.target.value));
   };
@@ -87,7 +74,6 @@ function NewPost() {
     const formData = new FormData();
     formData.append("nombre", nombre);
     formData.append("descripcion", descripcion);
-    // IMPORTANTE: Limpiamos el precio (quitamos puntos) antes de enviar al backend
     formData.append("precio", cleanCLP(precio));
     formData.append("stock", stock);
     if (selectedFiles.length > 0) {
@@ -99,6 +85,8 @@ function NewPost() {
       : `${API_URL}/productos/`;
     const method = editingProduct ? "PUT" : "POST";
 
+    const loadingToast = toast.loading(editingProduct ? 'Actualizando...' : 'Creando...'); // <-- AÑADIDO
+
     try {
       const response = await fetch(url, {
         method: method,
@@ -106,35 +94,72 @@ function NewPost() {
         body: formData,
       });
 
+      toast.dismiss(loadingToast); // <-- Cerramos el toast
+
       if (response.ok) {
-        alert(editingProduct ? "Producto actualizado" : "Producto creado");
+        toast.success(editingProduct ? "Producto actualizado" : "Producto creado"); // <-- MODIFICADO
         resetForm();
         fetchProductos();
       } else {
-        alert("Error al guardar producto");
+        toast.error("Error al guardar producto"); // <-- MODIFICADO
       }
     } catch (error) {
+      toast.dismiss(loadingToast); // <-- Cerramos el toast
       console.error("Error de red:", error);
+      toast.error("Error de red"); // <-- MODIFICADO
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm("¿Estás seguro de eliminar este producto?")) return;
-    try {
-      const response = await fetch(`${API_URL}/productos/${id}/`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (response.ok) fetchProductos();
-      else alert("Error al eliminar");
-    } catch (error) { console.error(error); }
+  const handleDelete = (id) => {
+    // --- MODIFICADO: Confirmación con toast ---
+    toast((t) => (
+      <div className="bg-white text-black p-4 rounded-lg shadow-lg">
+        <p className="font-semibold mb-2">Eliminar Producto</p>
+        <p className="mb-4">¿Seguro que quieres eliminar este producto?</p>
+        <div className="flex gap-2">
+          <button
+            className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded-md text-sm"
+            onClick={() => {
+              executeDelete(id);
+              toast.dismiss(t.id);
+            }}
+          >
+            Sí, eliminar
+          </button>
+          <button
+            className="bg-neutral-200 hover:bg-neutral-300 text-black px-3 py-1 rounded-md text-sm"
+            onClick={() => toast.dismiss(t.id)}
+          >
+            Cancelar
+          </button>
+        </div>
+      </div>
+    ), { duration: 6000 });
+    // --- FIN MODIFICACIÓN ---
+  };
+
+  const executeDelete = async (id) => {
+     try {
+       const response = await fetch(`${API_URL}/productos/${id}/`, {
+         method: "DELETE",
+         headers: { Authorization: `Bearer ${token}` },
+       });
+       if (response.ok) {
+         fetchProductos();
+         toast.success('Producto eliminado'); // <-- AÑADIDO
+       } else {
+         toast.error("Error al eliminar"); // <-- MODIFICADO
+       }
+     } catch (error) { 
+       console.error(error); 
+       toast.error("Error de red"); // <-- MODIFICADO
+     }
   };
 
   const handleEdit = (producto) => {
     setEditingProduct(producto);
     setNombre(producto.nombre);
     setDescripcion(producto.descripcion);
-    // Al cargar para editar, formateamos el precio que viene del backend
     setPrecio(formatCLP(producto.precio.toString()));
     setStock(producto.stock.toString());
     if (producto.imagen) {
@@ -145,6 +170,7 @@ function NewPost() {
         setSelectedFiles([]);
     }
     setCurrentIndex(0);
+    window.scrollTo(0, 0); // <-- AÑADIDO: Sube al formulario
   };
 
   const resetForm = () => {
@@ -186,14 +212,13 @@ function NewPost() {
               <div>
                   <label className="block text-neutral-400 text-sm mb-1">Precio (CLP)</label>
                   <div className="relative">
-                      {/* Símbolo $ fijo a la izquierda */}
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none">$</span>
                       <input
                         type="text"
                         inputMode="numeric"
                         className="w-full bg-neutral-800 border border-neutral-700 py-2 pl-8 pr-4 rounded focus:outline-none focus:border-blue-500 transition"
                         value={precio}
-                        onChange={handlePriceChange} // Usamos el nuevo handler con formato
+                        onChange={handlePriceChange}
                         placeholder="Ej: 10.000"
                         required
                       />
@@ -237,42 +262,42 @@ function NewPost() {
             </form>
           </div>
 
-          {/* --- CARRUSEL DE PREVIEW (Sin cambios en esta iteración) --- */}
-          <div className="bg-neutral-900 p-6 rounded-xl shadow-lg border border-neutral-800 flex flex-col items-center justify-center sticky top-6">
-             <h3 className="text-lg font-medium mb-4 text-neutral-300">Imágenes ({previewUrls.length})</h3>
-             <div className="relative w-full aspect-square bg-neutral-800 rounded-xl border-2 border-dashed border-neutral-700 flex items-center justify-center overflow-hidden mb-4 cursor-pointer hover:border-blue-500 transition group" onClick={() => fileInputRef.current.click()}>
-                {previewUrls.length > 0 ? (
-                    <>
-                        <img src={previewUrls[currentIndex]} alt={`Preview ${currentIndex}`} className="w-full h-full object-cover" />
-                        {previewUrls.length > 1 && (
-                            <>
-                                <button onClick={prevImage} className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/60 text-white p-2 rounded-full hover:bg-black/80 transition backdrop-blur-sm">
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
-                                </button>
-                                <button onClick={nextImage} className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/60 text-white p-2 rounded-full hover:bg-black/80 transition backdrop-blur-sm">
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-                                </button>
-                                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-black/60 px-3 py-1 rounded-full text-xs text-white backdrop-blur-sm">{currentIndex + 1} / {previewUrls.length}</div>
-                            </>
-                        )}
-                    </>
-                ) : (
-                    <div className="text-center p-4 group-hover:text-blue-400 transition">
-                        <span className="text-4xl mb-2 block">📷</span>
-                        <p className="text-sm text-neutral-500">Click para agregar imágenes</p>
-                    </div>
-                )}
-             </div>
-             {previewUrls.length > 0 && (
-                 <button onClick={removeCurrentImage} className="text-sm text-red-400 hover:text-red-300 transition flex items-center gap-1">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
-                    Eliminar esta imagen
-                 </button>
-             )}
+          {/* --- CARRUSEL DE PREVIEW --- */}
+          <div className="bg-neutral-900 p-6 rounded-xl shadow-lg border border-neutral-800 flex flex-col items-center justify-center sticky top-28"> {/* Modificado top-6 a top-28 */}
+               <h3 className="text-lg font-medium mb-4 text-neutral-300">Imágenes ({previewUrls.length})</h3>
+               <div className="relative w-full aspect-square bg-neutral-800 rounded-xl border-2 border-dashed border-neutral-700 flex items-center justify-center overflow-hidden mb-4 cursor-pointer hover:border-blue-500 transition group" onClick={() => fileInputRef.current.click()}>
+                   {previewUrls.length > 0 ? (
+                       <>
+                           <img src={previewUrls[currentIndex]} alt={`Preview ${currentIndex}`} className="w-full h-full object-cover" />
+                           {previewUrls.length > 1 && (
+                               <>
+                                   <button onClick={prevImage} className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/60 text-white p-2 rounded-full hover:bg-black/80 transition backdrop-blur-sm">
+                                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                                   </button>
+                                   <button onClick={nextImage} className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/60 text-white p-2 rounded-full hover:bg-black/80 transition backdrop-blur-sm">
+                                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                                   </button>
+                                   <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-black/60 px-3 py-1 rounded-full text-xs text-white backdrop-blur-sm">{currentIndex + 1} / {previewUrls.length}</div>
+                               </>
+                           )}
+                       </>
+                   ) : (
+                       <div className="text-center p-4 group-hover:text-blue-400 transition">
+                           <span className="text-4xl mb-2 block">📷</span>
+                           <p className="text-sm text-neutral-500">Click para agregar imágenes</p>
+                       </div>
+                   )}
+               </div>
+               {previewUrls.length > 0 && (
+                  <button onClick={removeCurrentImage} className="text-sm text-red-400 hover:text-red-300 transition flex items-center gap-1">
+                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
+                     Eliminar esta imagen
+                  </button>
+               )}
           </div>
         </div>
 
-        {/* --- LISTA DE INVENTARIO --- */}
+        {/* --- LISTA DE INVENTARIO (sin cambios) --- */}
         <div className="bg-neutral-900 p-6 rounded-xl shadow-lg border border-neutral-800">
           <h2 className="text-xl font-semibold mb-6 text-blue-400 border-b border-neutral-800 pb-2">Inventario Actual</h2>
           {productos.length === 0 ? (
@@ -301,7 +326,6 @@ function NewPost() {
                         </div>
                       </td>
                       <td className="p-4 text-neutral-300 font-medium">
-                        {/* Usamos formatCLP también aquí para consistencia en la lista */}
                         ${formatCLP(prod.precio.toString())}
                       </td>
                       <td className="p-4 text-center">

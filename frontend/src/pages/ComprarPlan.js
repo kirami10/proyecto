@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../AuthContext";
 import API_URL from "../api";
+import toast from 'react-hot-toast'; // <-- AÑADIR IMPORT
 
 // Helper para formato CLP
 const formatCLP = (value) => {
@@ -15,8 +16,7 @@ function ComprarPlan() {
   const [plan, setPlan] = useState(null);
   const [loading, setLoading] = useState(true);
   
-  // --- MODIFICADO ---
-  const { authToken, user } = useAuth(); // Obtenemos 'user' del contexto
+  const { authToken, user } = useAuth(); 
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -40,16 +40,16 @@ function ComprarPlan() {
   }, [planId, navigate]);
 
   const handlePago = async () => {
-    // --- MODIFICADO ---
     if (!authToken || !plan || !user?.user_id) {
-        alert("No se pudo obtener tu ID de usuario. Por favor, vuelve a iniciar sesión.");
+        toast.error("No se pudo obtener tu ID de usuario. Por favor, vuelve a iniciar sesión."); // <-- MODIFICADO
         return;
     }
 
-    // Creamos una orden de compra única y parsable
-    // FORMATO: PLAN-PLAN_ID-USER-USER_ID-TIMESTAMP
-    const buy_order = `PLAN-${plan.id}-USER-${user.user_id}-T-${Date.now()}`;
-    // --- FIN MODIFICACIÓN ---
+    const buy_order = `P${plan.id}U${user.user_id}T${Math.floor(Date.now() / 1000)}`;
+
+    // --- AÑADIDO: toast.loading ---
+    const loadingToast = toast.loading('Conectando con Webpay...');
+    // --- FIN ADICIÓN ---
 
     try {
       const response = await fetch("http://127.0.0.1:8000/api/webpay/create/", {
@@ -59,18 +59,18 @@ function ComprarPlan() {
           "Authorization": `Bearer ${authToken}`,
         },
         body: JSON.stringify({
-          amount: parseInt(plan.precio), // El precio del plan
-          session_id: "session_plan_" + plan.id,
-          buy_order: buy_order, // <--- USAMOS LA NUEVA BUY_ORDER
+          amount: parseInt(plan.precio), 
+          session_id: `P${plan.id}U${user.user_id}`,
+          buy_order: buy_order, 
           return_url: "http://127.0.0.1:8000/api/webpay/return/",
         }),
       });
 
       const data = await response.json();
+      toast.dismiss(loadingToast); // <-- Cerramos el toast de carga
 
       if (response.ok && data.url && data.token) {
         sessionStorage.setItem('webpay_in_progress', 'true');
-        // Redirige al formulario de Webpay
         const form = document.createElement("form");
         form.method = "POST";
         form.action = data.url;
@@ -82,10 +82,12 @@ function ComprarPlan() {
         document.body.appendChild(form);
         form.submit();
       } else {
-        alert("No se pudo iniciar la transacción con Webpay.");
+        toast.error("No se pudo iniciar la transacción con Webpay."); // <-- MODIFICADO
         console.error("Error en respuesta de Webpay:", data);
       }
     } catch (error) {
+      toast.dismiss(loadingToast); // <-- Cerramos el toast si hay error
+      toast.error("Error al conectar con el backend."); // <-- MODIFICADO
       console.error("Error al conectar con el backend:", error);
     }
   };

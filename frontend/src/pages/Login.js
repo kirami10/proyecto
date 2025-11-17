@@ -2,15 +2,18 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../AuthContext";
 import API_URL from "../api";
+import toast from 'react-hot-toast'; // <-- AÑADIR IMPORT
 
 function Login() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false); // <-- AÑADIDO
   const navigate = useNavigate();
   const { login } = useAuth();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setLoading(true); // <-- AÑADIDO
     try {
       const response = await fetch(`${API_URL}/token/`, {
         method: "POST",
@@ -23,33 +26,27 @@ function Login() {
         
         login(data.access, { username });
         
-        // --- INICIO DE LA MODIFICACIÓN ---
-        // Revisamos si había un plan pendiente guardado
         const pendingPlanId = localStorage.getItem('pendingPlanId');
         
         if (pendingPlanId) {
-          // Si hay uno, limpiamos el localStorage
           localStorage.removeItem('pendingPlanId');
-          // Y redirigimos a la compra de ese plan
           navigate(`/comprar-plan/${pendingPlanId}`);
         } else {
-          // Si no, vamos al perfil (comportamiento normal)
           navigate("/profile");
         }
-        // --- FIN DE LA MODIFICACIÓN ---
-
       } else {
-        alert("Credenciales incorrectas");
+        toast.error("Credenciales incorrectas"); // <-- MODIFICADO
       }
     } catch (err) {
       console.error(err);
-      alert("Error al intentar iniciar sesión");
+      toast.error("Error al intentar iniciar sesión"); // <-- MODIFICADO
     }
+    setLoading(false); // <-- AÑADIDO
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-neutral-900">
-      <div className="bg-neutral-800 border border-neutral-700 rounded-xl p-8 w-full max-w-sm shadow-xl shadow-black/40">
+    <div className="min-h-screen flex items-center justify-center bg-neutral-950 p-6">
+      <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-8 w-full max-w-sm shadow-xl shadow-black/40">
         <h2 className="text-2xl font-bold text-white mb-6 text-center tracking-wide">
           Iniciar Sesión
         </h2>
@@ -60,7 +57,7 @@ function Login() {
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             required
-            className="w-full bg-neutral-900 border border-neutral-700 text-white px-4 py-2 rounded-lg focus:outline-none focus:border-blue-500"
+            className="w-full bg-neutral-800 border border-neutral-700 text-white px-4 py-2 rounded-lg focus:outline-none focus:border-blue-500"
           />
         </div>
 
@@ -71,15 +68,16 @@ function Login() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
-            className="w-full bg-neutral-900 border border-neutral-700 text-white px-4 py-2 rounded-lg focus:outline-none focus:border-blue-500"
+            className="w-full bg-neutral-800 border border-neutral-700 text-white px-4 py-2 rounded-lg focus:outline-none focus:border-blue-500"
           />
         </div>
 
         <button
           onClick={handleSubmit}
-          className="w-full bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700 transition"
+          disabled={loading} // <-- AÑADIDO
+          className="w-full bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700 transition disabled:opacity-50"
         >
-          Entrar
+          {loading ? "Entrando..." : "Entrar"} {/* <-- MODIFICADO */}
         </button>
       </div>
     </div>

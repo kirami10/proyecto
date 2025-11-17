@@ -1,17 +1,18 @@
 import json
 import requests
 import time
+import re # <-- IMPORTANTE: Importamos Regex
+
 from django.conf import settings
 from django.http import HttpResponseRedirect, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 
-# --- AÑADIR IMPORTS ---
 from django.contrib.auth.models import User
-from .models import Plan, Suscripcion
+from .models import Plan, Suscripcion, Carrito, Pedido, PedidoItem, Producto 
 from django.shortcuts import get_object_or_404
-# --- FIN IMPORTS ---
+from django.db import transaction 
 
 
 # Credenciales de Integración (Test)
@@ -23,18 +24,22 @@ TBK_URL_CREATE = "https://webpay3gint.transbank.cl/rswebpaytransaction/api/webpa
 @permission_classes([IsAuthenticated])
 def webpay_create(request):
     """
-    1. El Frontend llama aquí para iniciar el pago (PARA EL CARRITO DE COMPRAS).
+    1. El Frontend llama aquí para iniciar el pago.
     """
     try:
         data = request.data
         amount = int(data.get('amount', 1000))
         
-        # --- BUY_ORDER MEJORADA (para el carrito) ---
-        # FORMATO: CART-USER-USER_ID-TIMESTAMP
-        buy_order = f"CART-USER-{request.user.id}-T-{int(time.time())}"
-        session_id = f"SES-{int(time.time())}"
+        # --- MODIFICADO: Usar SIEMPRE la buy_order CORTA del frontend ---
+        buy_order = data.get('buy_order')
+        if not buy_order:
+            # Si el frontend no la envía, es un error.
+            return JsonResponse({"error": "buy_order es requerida"}, status=400)
+            
+        session_id = data.get('session_id', f"SES-{int(time.time())}")
         
-        return_url = request.build_absolute_uri('/api/webpay/return/')
+        # Usamos la return_url de settings.py
+        return_url = settings.WEBPAY_RETURN_URL
 
         headers = {
             "Tbk-Api-Key-Id": TBK_API_KEY_ID,
@@ -66,9 +71,10 @@ def webpay_create(request):
 
 
 @csrf_exempt
+@transaction.atomic 
 def webpay_return(request):
     """
-    2. Transbank devuelve al usuario aquí (POST o GET).
+    2. Transbank devuelve al usuario aquí.
     3. Confirmamos la transacción.
     4. SI ES EXITOSO, guardamos la suscripción/orden.
     5. Redirigimos al Frontend.
@@ -77,7 +83,7 @@ def webpay_return(request):
     
     tbk_token = request.POST.get("TBK_TOKEN") or request.GET.get("TBK_TOKEN")
     if tbk_token and not token:
-        frontend_url = f"http://localhost:3000/resultado?status=aborted"
+        frontend_url = f"{settings.WEBPAY_FINAL_URL}?status=aborted"
         return HttpResponseRedirect(frontend_url)
 
     if not token:
@@ -100,42 +106,84 @@ def webpay_return(request):
     if response.status_code == 200 and result.get("response_code") == 0:
         status = "success"
         
-        # --- INICIO DE LÓGICA DE SUSCRIPCIÓN ---
         try:
-            # Evitar procesar la misma orden dos veces
-            if not Suscripcion.objects.filter(orden_compra=buy_order).exists():
-            
-                # A. ¿Es una compra de Plan?
-                if buy_order.startswith("PLAN-"):
-                    # 'PLAN-PLAN_ID-USER-USER_ID-T-TIMESTAMP'
-                    parts = buy_order.split('-')
-                    plan_id = parts[1]
-                    user_id = parts[3]
+            # A. ¿Es una compra de Plan?
+            # Formato: P<plan.id>U<user.id>T<timestamp>
+            if buy_order.startswith("P"): # <-- MODIFICADO
+                if not Suscripcion.objects.filter(orden_compra=buy_order).exists():
+                
+                    # --- MODIFICADO: Parsear la nueva buy_order CORTA ---
+                    match = re.search(r'P(\d+)U(\d+)T(\d+)', buy_order)
+                    if not match:
+                        raise Exception("Formato de buy_order de Plan inválido")
+                        
+                    plan_id = match.group(1)
+                    user_id = match.group(2)
+                    # --- FIN MODIFICACIÓN ---
                     
                     user = get_object_or_404(User, id=user_id)
                     plan = get_object_or_404(Plan, id=plan_id)
                     
-                    # ¡Crear la suscripción!
                     Suscripcion.objects.create(
                         user=user,
                         plan=plan,
                         orden_compra=buy_order
                     )
+            
+            # B. ¿Es una compra de Carrito?
+            # Formato: C<user.id>T<timestamp>
+            elif buy_order.startswith("C"): # <-- MODIFICADO
+                if not Pedido.objects.filter(orden_compra=buy_order).exists():
                 
-                # B. ¿Es una compra de Carrito? (Lógica futura)
-                elif buy_order.startswith("CART-"):
-                    # Aquí iría la lógica para crear un Pedido
-                    # y descontar stock de Productos.
-                    print(f"Compra de carrito {buy_order} exitosa. (Lógica no implementada)")
+                    # --- MODIFICADO: Parsear la nueva buy_order CORTA ---
+                    match = re.search(r'C(\d+)T(\d+)', buy_order)
+                    if not match:
+                        raise Exception("Formato de buy_order de Carrito inválido")
+                        
+                    user_id = match.group(1)
+                    # --- FIN MODIFICACIÓN ---
+
+                    user = get_object_or_404(User, id=user_id)
+                    
+                    try:
+                        carrito = Carrito.objects.get(user=user)
+                    except Carrito.DoesNotExist:
+                        raise Exception("Carrito no encontrado para pago")
+
+                    nuevo_pedido = Pedido.objects.create(
+                        user=user,
+                        orden_compra=buy_order,
+                        monto_total=result.get('amount', 0),
+                        estado='PAGADO'
+                    )
+
+                    items_carrito = carrito.items.all()
+                    
+                    if not items_carrito.exists():
+                         raise Exception("Intento de pago de carrito vacío")
+
+                    for item in items_carrito:
+                        PedidoItem.objects.create(
+                            pedido=nuevo_pedido,
+                            producto=item.producto,
+                            cantidad=item.cantidad,
+                            precio_al_momento_compra=item.producto.precio
+                        )
+                        
+                        producto_a_actualizar = Producto.objects.select_for_update().get(id=item.producto.id)
+                        
+                        if producto_a_actualizar.stock < item.cantidad:
+                            raise Exception(f"Stock insuficiente para {producto_a_actualizar.nombre}")
+                        
+                        producto_a_actualizar.stock -= item.cantidad
+                        producto_a_actualizar.save()
+                    
+                    items_carrito.delete()
 
         except Exception as e:
-            # Si algo falla al guardar la orden, el pago está hecho
-            # pero deberíamos loguearlo para revisión manual.
             print(f"Error grave al guardar orden {buy_order}: {str(e)}")
             status = "failed_post_payment"
-        # --- FIN DE LÓGICA DE SUSCRIPCIÓN ---
     
-    # Redirigir al Frontend
-    frontend_url = f"http://localhost:3000/resultado?status={status}&amount={result.get('amount', 0)}&buy_order={buy_order}"
+    frontend_url = f"{settings.WEBPAY_FINAL_URL}?status={status}&amount={result.get('amount', 0)}&buy_order={buy_order}"
     
     return HttpResponseRedirect(frontend_url)

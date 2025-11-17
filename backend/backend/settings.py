@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.0/ref/settings/
 """
 
 from pathlib import Path
+from decouple import config # ### MODIFICADO 1: Importamos config ###
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -19,14 +20,20 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-8fx=a*n++8(21i0xt5_b)wn7xm*j6!n22@ev-)r&(2ap)i$nbl'
+# ### MODIFICADO 2: Leemos los valores desde el archivo .env ###
+# Ya no están escritos directamente en el código.
+SECRET_KEY = config('SECRET_KEY')
+DEBUG = config('DEBUG', default=False, cast=bool)
+# --- Fin de la modificación ---
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
 
-ALLOWED_HOSTS = []
-
+# ### MODIFICADO 3: Configuramos ALLOWED_HOSTS ###
+# Cuando DEBUG = False, Django NO funcionará a menos que le digas
+# qué dominios puede servir.
+# Para desarrollo local (incluso con DEBUG=False), añadimos '127.0.0.1' y 'localhost'.
+# Cuando despliegues tu app a internet, deberás añadir tu dominio real aquí.
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
+# --- Fin de la modificación ---
 
 
 # Application definition
@@ -41,6 +48,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'corsheaders',
     'tienda',
+    'decouple', # ### MODIFICADO 4: Añadimos decouple a las apps ###
 ]
 
 MIDDLEWARE = [
@@ -60,13 +68,15 @@ REST_FRAMEWORK = {
     )
 }
 
+# --- Configuración de CORS ---
+# Asegúrate de que CORS_ALLOW_ALL_ORIGINS esté en False o comentado
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
 ]
-
-CORS_ALLOW_ALL_ORIGINS = True
-
+# CORS_ALLOW_ALL_ORIGINS = True # Comentado o Falso
 CORS_ALLOW_CREDENTIALS = True
+# --- Fin de CORS ---
+
 
 ROOT_URLCONF = 'backend.urls'
 
@@ -139,12 +149,6 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 import os
 
-# ... (todo tu código existente) ...
-
-# Static files (CSS, JavaScript, Images)
-STATIC_URL = 'static/'
-
-# --- AÑADIR ESTO AL FINAL ---
 # Configuración para archivos multimedia (imágenes subidas por usuarios)
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
