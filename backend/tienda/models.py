@@ -116,3 +116,18 @@ class PedidoItem(models.Model):
 
     def __str__(self):
         return f"{self.producto.nombre} x {self.cantidad}"
+
+class Review(models.Model):
+    producto = models.ForeignKey(Producto, on_delete=models.CASCADE, related_name="reviews")
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="reviews")
+    rating = models.PositiveSmallIntegerField(default=5) # Rating de 1 a 5
+    comentario = models.TextField(blank=True, null=True)
+    creado_en = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        # Asegura que un usuario solo pueda dejar una reseña por producto
+        unique_together = ('producto', 'user')
+        ordering = ['-creado_en']
+
+    def __str__(self):
+        return f'Review de {self.user.username} para {self.producto.nombre}'

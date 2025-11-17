@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth.models import User
+from .models import Review
 # --- MODIFICADO: Añadimos Pedido y PedidoItem ---
 from .models import (
     Profile, Producto, Plan, Suscripcion, Carrito, CarritoItem, 
@@ -159,3 +160,12 @@ class PedidoSerializer(serializers.ModelSerializer):
         model = Pedido
         fields = ['id', 'user', 'orden_compra', 'monto_total', 
                   'creado_en', 'estado', 'items']
+
+class ReviewSerializer(serializers.ModelSerializer):
+    # Obtenemos el username del usuario para mostrarlo
+    username = serializers.CharField(source='user.username', read_only=True)
+    
+    class Meta:
+        model = Review
+        fields = ['id', 'producto', 'user', 'username', 'rating', 'comentario', 'creado_en']
+        read_only_fields = ('user', 'producto') # Los seteamos desde la vista

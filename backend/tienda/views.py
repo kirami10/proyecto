@@ -17,6 +17,8 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from django.shortcuts import get_object_or_404
 from .utils import render_to_pdf
+from .models import Review # <-- AÑADIR IMPORT
+from .serializers import ReviewSerializer # <-- AÑADIR IMPORT
 
 # ... (Vista MyTokenObtainPairView sin cambios) ...
 class MyTokenObtainPairView(TokenObtainPairView):
@@ -268,3 +270,31 @@ def descargar_boleta(request, pedido_id):
     pdf = render_to_pdf('tienda/boleta.html', context)
     
     return pdf
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticatedOrReadOnly]) # GET (ver) es público, POST (crear) requiere login
+def product_reviews(request, producto_id):
+    """
+    Obtiene todas las reseñas de un producto (GET)
+    o crea una nueva reseña para un producto (POST).
+    """
+    producto = get_object_or_404(Producto, id=producto_id)
+
+    if request.method == 'GET':
+        reviews = Review.objects.filter(producto=producto).order_by('-creado_en')
+        serializer = ReviewSerializer(reviews, many=True, context={'request': request})
+        return Response(serializer.data)
+
+    elif request.method == 'POST':
+        user = request.user
+        
+        # Revisamos si el usuario ya comentó este producto
+        if Review.objects.filter(producto=producto, user=user).exists():
+            return Response({"error": "Ya has comentado este producto"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        serializer = ReviewSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(user=user, producto=producto)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
