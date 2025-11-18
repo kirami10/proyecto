@@ -48,6 +48,22 @@ function Navbar({ token, onLogout, role }) {
           Planes
         </Link>
 
+        {/* --- NUEVO LINK DEL BLOG --- */}
+        <Link
+            to="/blog"
+            className="text-neutral-300 font-medium px-3 py-2 rounded-lg transition-all duration-200 hover:bg-neutral-800 hover:text-white"
+          >
+            Blog
+        </Link>
+        {token && (isAdmin || isStaff) && (
+        <Link
+          to="/admin/blog"
+          className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all font-semibold"
+          >
+          Blog Admin
+        </Link>
+      )}
+
         {/* --- LINKS DE ADMIN/STAFF --- */}
         {token && isAdmin && (
           <Link
@@ -58,6 +74,7 @@ function Navbar({ token, onLogout, role }) {
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20"><path d="M13 7a3 3 0 11-6 0 3 3 0 016 0z" /><path fillRule="evenodd" d="M5 14a7 7 0 1110 0H5z" /></svg>
             <span className="hidden lg:inline">Usuarios</span>
           </Link>
+          
         )}
         {token && (isAdmin || isStaff) && (
           <Link

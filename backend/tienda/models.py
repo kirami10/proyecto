@@ -135,3 +135,16 @@ class Review(models.Model):
 
     def __str__(self):
         return f'Review de {self.user.username} para {self.producto.nombre}'
+    
+# --- BLOG: Modelo de Publicaciones ---
+class Blog(models.Model):
+    titulo = models.CharField(max_length=200)
+    contenido = models.TextField()
+    imagen = models.ImageField(upload_to='blog/', null=True, blank=True)
+    fecha_publicacion = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-fecha_publicacion']
+
+    def __str__(self):
+        return self.titulo

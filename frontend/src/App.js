@@ -20,6 +20,10 @@ import ComprarPlan from "./pages/ComprarPlan";
 import HistorialPedidos from "./pages/HistorialPedidos";
 import ProductoDetalle from "./pages/ProductoDetalle"; // <-- AÑADIR IMPORT
 
+import Blog from "./pages/Blog";
+import BlogDetalle from "./pages/BlogDetalle";
+import AdminBlog from "./pages/AdminBlog";
+
 function AppRoutes() {
   const { authToken, logout, userRole } = useAuth();
 
@@ -65,6 +69,19 @@ function AppRoutes() {
             path="/historial" 
             element={authToken ? <HistorialPedidos /> : <Navigate to="/login" replace />} 
           />
+          {/*  Rutas del blog  */}            
+          <Route path="/blog" element={<Blog />} />
+          <Route path="/blog/:id" element={<BlogDetalle />} />
+
+          <Route 
+            path="/admin/blog" 
+            element={
+              authToken && (userRole === "admin" || userRole === "contadora")
+                ? <AdminBlog />
+                : <Navigate to="/" replace />
+            } 
+          />
+
 
           {/* Rutas Admin/Staff */}
           <Route path="/publicar-producto" element={authToken && (userRole === "admin" || userRole === "contadora") ? <NewPost /> : <Navigate to="/" replace />} />
