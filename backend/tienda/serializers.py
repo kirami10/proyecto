@@ -162,10 +162,13 @@ class PedidoSerializer(serializers.ModelSerializer):
                   'creado_en', 'estado', 'items']
 
 class ReviewSerializer(serializers.ModelSerializer):
-    # Obtenemos el username del usuario para mostrarlo
     username = serializers.CharField(source='user.username', read_only=True)
     
     class Meta:
         model = Review
-        fields = ['id', 'producto', 'user', 'username', 'rating', 'comentario', 'creado_en']
-        read_only_fields = ('user', 'producto') # Los seteamos desde la vista
+        fields = [
+            'id', 'producto', 'user', 'username', 
+            'rating', 'comentario', 'creado_en', 
+            'is_visible'  # <-- AÑADIR ESTO A LA LISTA
+        ]
+        read_only_fields = ('user', 'producto')

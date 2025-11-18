@@ -122,10 +122,14 @@ class Review(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="reviews")
     rating = models.PositiveSmallIntegerField(default=5) # Rating de 1 a 5
     comentario = models.TextField(blank=True, null=True)
+    
+    # --- AÑADIR ESTA LÍNEA ---
+    is_visible = models.BooleanField(default=True) # Por defecto, todas las reseñas son visibles
+    # --- FIN DE LA ADICIÓN ---
+
     creado_en = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        # Asegura que un usuario solo pueda dejar una reseña por producto
         unique_together = ('producto', 'user')
         ordering = ['-creado_en']
 

@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback } from "react";
 import API_URL from "../api";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom"; // <-- MODIFICADO: Añadimos Link
 import { useCart } from "../context/CartContext";
 
-// --- Helpers de Formato (AQUÍ ESTABA EL ERROR) ---
+// --- Helpers de Formato ---
 const formatCLP = (value) => {
   const cleanValue = (value || "0").toString().replace(/\D/g, "");
   return new Intl.NumberFormat("es-CL").format(parseInt(cleanValue, 10));
@@ -18,36 +18,41 @@ const getImageUrl = (path) => {
 
 // --- Componente de Tarjeta de Producto ---
 const ProductCard = ({ producto, onAddToCart }) => {
-  // ... (Código de ProductCard sin cambios) ...
   const imageUrl = getImageUrl(producto.imagen);
 
   return (
     <div className="group relative flex flex-col rounded-xl shadow-lg overflow-hidden bg-neutral-800 border border-neutral-700/50 transition-all duration-300 hover:shadow-blue-900/20">
-      <div className="aspect-square w-full overflow-hidden">
-        <img
-          src={imageUrl || "https://placehold.co/400x400/374151/9ca3af?text=Sin+Imagen"}
-          alt={producto.nombre}
-          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-        />
-      </div>
-      <div className="flex-1 p-4 flex flex-col">
-        <h3 className="text-lg font-semibold text-white truncate">{producto.nombre}</h3>
-        <p className="text-sm text-neutral-400 mb-4 h-10 overflow-hidden">
-          {producto.descripcion || "Sin descripción"}
-        </p>
-        <div className="mt-auto flex justify-between items-center">
-          <span className="text-2xl font-bold text-blue-400">
-            ${formatCLP(producto.precio)}
-          </span>
-          <span className={`text-xs font-medium px-2 py-1 rounded-full ${
-            producto.stock > 0 ? 'bg-green-900/50 text-green-300' : 'bg-red-900/50 text-red-300'
-          }`}>
-            {producto.stock > 0 ? `${producto.stock} en Stock` : "Agotado"}
-          </span>
+      
+      {/* --- MODIFICADO: Enlace a la página de detalle --- */}
+      <Link to={`/producto/${producto.id}`} className="flex flex-col flex-1">
+        <div className="aspect-square w-full overflow-hidden">
+          <img
+            src={imageUrl || "https://placehold.co/400x400/374151/9ca3af?text=Sin+Imagen"}
+            alt={producto.nombre}
+            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+          />
         </div>
-      </div>
+        <div className="flex-1 p-4 flex flex-col">
+          <h3 className="text-lg font-semibold text-white truncate">{producto.nombre}</h3>
+          <p className="text-sm text-neutral-400 mb-4 h-10 overflow-hidden">
+            {producto.descripcion || "Sin descripción"}
+          </p>
+          <div className="mt-auto flex justify-between items-center">
+            <span className="text-2xl font-bold text-blue-400">
+              ${formatCLP(producto.precio)}
+            </span>
+            <span className={`text-xs font-medium px-2 py-1 rounded-full ${
+              producto.stock > 0 ? 'bg-green-900/50 text-green-300' : 'bg-red-900/50 text-red-300'
+            }`}>
+              {producto.stock > 0 ? `${producto.stock} en Stock` : "Agotado"}
+            </span>
+          </div>
+        </div>
+      </Link>
+      {/* --- FIN DE LA MODIFICACIÓN --- */}
+
       <button 
-        onClick={() => onAddToCart(producto)} // <--- 2. PASAR EL OBJETO 'producto' COMPLETO
+        onClick={() => onAddToCart(producto)}
         disabled={producto.stock === 0}
         className="w-full bg-blue-600 text-white font-bold py-3 px-4 transition duration-300 hover:bg-blue-700 disabled:bg-neutral-700 disabled:cursor-not-allowed"
       >
@@ -81,12 +86,11 @@ function Home({ token }) {
     fetchProductos();
   }, [fetchProductos]);
 
-  // 4. ACTUALIZAR el handler
   const handleAddToCart = (producto) => {
     if (!token) {
       navigate("/login");
     } else {
-      addToCart(producto); // <--- 5. LLAMAR a la función del contexto
+      addToCart(producto);
     }
   };
 

@@ -2,7 +2,7 @@ import React from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./AuthContext";
 import { CartProvider } from "./context/CartContext"; 
-import { Toaster } from "react-hot-toast"; // <-- AÑADIR IMPORT
+import { Toaster } from "react-hot-toast";
 
 import Navbar from "./components/Navbar";
 import Login from "./pages/Login";
@@ -18,14 +18,13 @@ import Carrito from "./pages/Carrito";
 import PagoResultado from "./pages/PagoResultado";
 import ComprarPlan from "./pages/ComprarPlan";
 import HistorialPedidos from "./pages/HistorialPedidos";
+import ProductoDetalle from "./pages/ProductoDetalle"; // <-- AÑADIR IMPORT
 
 function AppRoutes() {
   const { authToken, logout, userRole } = useAuth();
 
   return (
     <Router>
-      {/* --- AÑADIDO: Contenedor de notificaciones --- */}
-      {/* Lo ponemos aquí para que esté disponible en toda la app */}
       <Toaster 
         position="top-center"
         reverseOrder={false}
@@ -37,16 +36,20 @@ function AppRoutes() {
           },
         }}
       />
-      {/* --- FIN DE LA ADICIÓN --- */}
 
       <Navbar token={authToken} onLogout={logout} role={userRole} />
-      {/* Quitamos el p-6 de aquí para que las páginas controlen su propio padding */}
       <div className="min-h-screen bg-neutral-950 text-white">
         <Routes>
+          {/* Rutas Públicas */}
           <Route path="/" element={<Home token={authToken} />} />
+          <Route path="/planes" element={<Planes />} />
+          
+          {/* --- AÑADIDA ESTA RUTA --- */}
+          <Route path="/producto/:productoId" element={<ProductoDetalle token={authToken} />} />
+
+          {/* Rutas de Autenticación */}
           <Route path="/login" element={authToken ? <Navigate to="/profile" replace /> : <Login />} />
           <Route path="/register" element={authToken ? <Navigate to="/profile" replace /> : <Register />} />
-          <Route path="/planes" element={<Planes />} />
           
           {/* Rutas Privadas */}
           <Route path="/profile" element={authToken ? <Profile token={authToken} /> : <Navigate to="/login" replace />} />
@@ -58,7 +61,6 @@ function AppRoutes() {
             path="/comprar-plan/:planId" 
             element={authToken ? <ComprarPlan /> : <Navigate to="/login" replace />} 
           />
-
           <Route 
             path="/historial" 
             element={authToken ? <HistorialPedidos /> : <Navigate to="/login" replace />} 
