@@ -5,7 +5,7 @@ from .models import Review
 # --- MODIFICADO: Añadimos Pedido y PedidoItem ---
 from .models import (
     Profile, Producto, Plan, Suscripcion, Carrito, CarritoItem, 
-    Pedido, PedidoItem, Noticia
+    Pedido, PedidoItem, Noticia, Notificacion
 )
 
 # --- Serializador para Token JWT (con roles) ---
@@ -177,3 +177,17 @@ class NoticiaSerializer(serializers.ModelSerializer):
     class Meta:
         model = Noticia
         fields = '__all__'
+
+class NotificacionSerializer(serializers.ModelSerializer):
+    # Campo calculado: True si el usuario actual ya la leyó, False si no.
+    leida = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Notificacion
+        fields = ['id', 'titulo', 'mensaje', 'tipo', 'creado_en', 'leida'] # Agregamos 'leida'
+
+    def get_leida(self, obj):
+        user = self.context.get('request').user
+        if user and user.is_authenticated:
+            return obj.leido_por.filter(id=user.id).exists()
+        return False

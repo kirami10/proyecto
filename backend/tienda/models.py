@@ -144,3 +144,23 @@ class Noticia(models.Model):
 
     def __str__(self):
         return self.titulo
+
+class Notificacion(models.Model):
+    TIPO_CHOICES = (
+        ('info', 'Información (Azul)'),
+        ('alerta', 'Alerta/Problema (Rojo)'),
+        ('exito', 'Aviso/Evento (Verde)'),
+    )
+    
+    titulo = models.CharField(max_length=100)
+    mensaje = models.TextField()
+    tipo = models.CharField(max_length=20, choices=TIPO_CHOICES, default='info')
+    creado_en = models.DateTimeField(auto_now_add=True)
+
+    # --- AÑADIDO: Relación Muchos a Muchos ---
+    # Esto guarda qué usuarios han leído esta notificación
+    leido_por = models.ManyToManyField(User, related_name='notificaciones_leidas', blank=True)
+    # --- FIN AÑADIDO ---
+
+    def __str__(self):
+        return f"{self.titulo} ({self.tipo})"

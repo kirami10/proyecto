@@ -14,7 +14,8 @@ from .views import (
     descargar_boleta,
     product_reviews,
     moderate_review_detail,
-    NoticiaViewSet  # <--- AÑADIDO
+    NoticiaViewSet,
+    NotificacionViewSet,  # <--- AÑADIDO
 )
 from .views_webpay import webpay_create, webpay_return 
 
@@ -23,6 +24,7 @@ router.register(r'productos', ProductoViewSet)
 router.register(r'usuarios', UserAdminViewSet)
 router.register(r'planes', PlanViewSet)
 router.register(r'noticias', NoticiaViewSet)
+router.register(r'notificaciones', NotificacionViewSet)
 
 urlpatterns = [
     path('token/', MyTokenObtainPairView.as_view(), name='token_obtain_pair'),

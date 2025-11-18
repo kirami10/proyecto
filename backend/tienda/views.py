@@ -7,19 +7,20 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from django.contrib.auth.models import User
 from .models import (
     Profile, Producto, Plan, Suscripcion, Carrito, CarritoItem,
-    Pedido, PedidoItem, Review, Noticia # <-- AÑADIDO Review
+    Pedido, PedidoItem, Review, Noticia, Notificacion # <-- AÑADIDO Review
 )
 from .serializers import (
     RegisterSerializer, ProfileSerializer, MyTokenObtainPairSerializer, 
     ProductoSerializer, PlanSerializer, SuscripcionSerializer, 
     CarritoSerializer, CarritoItemSerializer,
-    PedidoSerializer, ReviewSerializer, NoticiaSerializer # <-- AÑADIDO ReviewSerializer
+    PedidoSerializer, ReviewSerializer, NoticiaSerializer, NotificacionSerializer # <-- AÑADIDO ReviewSerializer
 )
 import requests
 from django.http import JsonResponse
 from rest_framework.decorators import api_view
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
+from rest_framework.decorators import action
 from django.shortcuts import get_object_or_404
 from .utils import render_to_pdf # Importación de PDF
 
@@ -307,3 +308,29 @@ class NoticiaViewSet(viewsets.ModelViewSet): # <-- Cambiado de ReadOnlyModelView
             # POST, PUT, DELETE: Solo Admin
             permission_classes = [IsAdminUser]
         return [permission() for permission in permission_classes]
+
+class NotificacionViewSet(viewsets.ModelViewSet):
+    """
+    Vista de notificaciones.
+    """
+    queryset = Notificacion.objects.all().order_by('-creado_en')
+    serializer_class = NotificacionSerializer
+    pagination_class = None 
+    
+    def get_permissions(self):
+        if self.action in ['list', 'retrieve', 'marcar_todas_leidas']: # <-- Añadir la acción aquí
+            return [IsAuthenticated()] # Solo usuarios logueados pueden leer/marcar
+        return [IsAdminUser()] # Solo admin puede crear/borrar
+
+    # --- NUEVA ACCIÓN: Marcar todo como leído ---
+    @action(detail=False, methods=['post'])
+    def marcar_todas_leidas(self, request):
+        user = request.user
+        # Obtenemos todas las notificaciones que el usuario NO ha leído aún
+        notificaciones_no_leidas = Notificacion.objects.exclude(leido_por=user)
+        
+        # Las añadimos a su lista de leídos
+        for notif in notificaciones_no_leidas:
+            notif.leido_por.add(user)
+            
+        return Response({"status": "ok", "message": "Todas marcadas como leídas"})

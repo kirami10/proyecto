@@ -25,6 +25,8 @@ import HistorialPedidos from "./pages/HistorialPedidos";
 import ProductoDetalle from "./pages/ProductoDetalle";
 import Blog from "./pages/Blog";
 import NuevaNoticia from "./pages/NuevaNoticia";
+import CrearNotificacion from "./pages/CrearNotificacion";
+import GestionNotificaciones from "./pages/GestionNotificaciones";
 
 function AppRoutes() {
   const { authToken, logout, userRole } = useAuth();
@@ -81,6 +83,8 @@ function AppRoutes() {
             <Route path="/gestion-usuarios" element={authToken && userRole === "admin" ? <GestionUsuarios /> : <Navigate to="/" replace />} />
             <Route path="/gestion-planes" element={authToken && (userRole === "admin" || userRole === "contadora") ? <GestionPlanes /> : <Navigate to="/" replace />} />
             <Route path="/publicar-noticia" element={authToken && userRole === "admin" ? <NuevaNoticia /> : <Navigate to="/" replace />} />
+            <Route path="/crear-notificacion" element={authToken && userRole === "admin" ? <CrearNotificacion /> : <Navigate to="/" replace />} />
+            <Route path="/gestion-notificaciones" element={authToken && userRole === "admin" ? <GestionNotificaciones /> : <Navigate to="/" replace />} />
             
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
