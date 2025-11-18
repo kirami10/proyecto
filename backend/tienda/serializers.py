@@ -5,7 +5,7 @@ from .models import Review
 # --- MODIFICADO: Añadimos Pedido y PedidoItem ---
 from .models import (
     Profile, Producto, Plan, Suscripcion, Carrito, CarritoItem, 
-    Pedido, PedidoItem
+    Pedido, PedidoItem, Noticia
 )
 
 # --- Serializador para Token JWT (con roles) ---
@@ -172,3 +172,8 @@ class ReviewSerializer(serializers.ModelSerializer):
             'is_visible'  # <-- AÑADIR ESTO A LA LISTA
         ]
         read_only_fields = ('user', 'producto')
+
+class NoticiaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Noticia
+        fields = '__all__'

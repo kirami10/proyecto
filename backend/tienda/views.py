@@ -7,13 +7,13 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from django.contrib.auth.models import User
 from .models import (
     Profile, Producto, Plan, Suscripcion, Carrito, CarritoItem,
-    Pedido, PedidoItem, Review # <-- AÑADIDO Review
+    Pedido, PedidoItem, Review, Noticia # <-- AÑADIDO Review
 )
 from .serializers import (
     RegisterSerializer, ProfileSerializer, MyTokenObtainPairSerializer, 
     ProductoSerializer, PlanSerializer, SuscripcionSerializer, 
     CarritoSerializer, CarritoItemSerializer,
-    PedidoSerializer, ReviewSerializer # <-- AÑADIDO ReviewSerializer
+    PedidoSerializer, ReviewSerializer, NoticiaSerializer # <-- AÑADIDO ReviewSerializer
 )
 import requests
 from django.http import JsonResponse
@@ -289,3 +289,21 @@ def moderate_review_detail(request, review_id):
         return Response(serializer.data)
     
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class NoticiaViewSet(viewsets.ModelViewSet): # <-- Cambiado de ReadOnlyModelViewSet a ModelViewSet
+    """
+    Vista para noticias.
+    - Cualquiera puede ver (list/retrieve).
+    - Solo el Admin puede crear/editar/borrar.
+    """
+    queryset = Noticia.objects.all().order_by('-creado_en')
+    serializer_class = NoticiaSerializer
+
+    def get_permissions(self):
+        if self.action in ['list', 'retrieve']:
+            # GET: Permitido a todos (Público)
+            permission_classes = [AllowAny]
+        else:
+            # POST, PUT, DELETE: Solo Admin
+            permission_classes = [IsAdminUser]
+        return [permission() for permission in permission_classes]

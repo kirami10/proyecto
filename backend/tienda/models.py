@@ -135,3 +135,12 @@ class Review(models.Model):
 
     def __str__(self):
         return f'Review de {self.user.username} para {self.producto.nombre}'
+
+class Noticia(models.Model):
+    titulo = models.CharField(max_length=200)
+    contenido = models.TextField()
+    imagen = models.ImageField(upload_to='noticias/', null=True, blank=True)
+    creado_en = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.titulo

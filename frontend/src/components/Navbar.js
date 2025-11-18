@@ -1,6 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { useCart } from "../context/CartContext"; // <-- Importamos el hook del carrito
+import { useCart } from "../context/CartContext"; // Importamos el hook del carrito
 
 // Icono simple de Pesa (Dumbbell)
 const DumbbellIcon = () => (
@@ -10,7 +10,7 @@ const DumbbellIcon = () => (
 );
 
 function Navbar({ token, onLogout, role }) {
-  const { itemCount } = useCart(); // <-- Obtenemos el contador de items
+  const { itemCount } = useCart(); // Obtenemos el contador de items
   
   // Usamos los roles de tu backend
   const isAdmin = role === "admin";
@@ -41,6 +41,14 @@ function Navbar({ token, onLogout, role }) {
         >
           Tienda
         </Link>
+
+        <Link
+          to="/nosotros"
+          className="text-neutral-300 font-medium px-3 py-2 rounded-lg transition-all duration-200 hover:bg-neutral-800 hover:text-white"
+        >
+          Nosotros
+        </Link>
+
         <Link
           to="/planes"
           className="text-neutral-300 font-medium px-3 py-2 rounded-lg transition-all duration-200 hover:bg-neutral-800 hover:text-white"
@@ -59,6 +67,21 @@ function Navbar({ token, onLogout, role }) {
             <span className="hidden lg:inline">Usuarios</span>
           </Link>
         )}
+
+        {/* NUEVO BOTÓN: PUBLICAR NOTICIA (SOLO ADMIN) */}
+        {token && isAdmin && (
+          <Link
+            to="/publicar-noticia"
+            className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all duration-300 font-semibold flex items-center gap-2 shadow-md hover:shadow-lg"
+            title="Publicar Noticia"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
+            </svg>
+            <span className="hidden lg:inline">Noticia</span>
+          </Link>
+        )}
+
         {token && (isAdmin || isStaff) && (
           <Link
             to="/publicar-producto"
@@ -92,7 +115,6 @@ function Navbar({ token, onLogout, role }) {
               Mi Plan
             </Link>
 
-            {/* --- AÑADIDO: Enlace a Historial de Pedidos --- */}
             <Link
               to="/historial"
               className="text-neutral-300 font-medium px-3 py-2 rounded-lg transition-all duration-200 hover:bg-neutral-800 hover:text-white"
@@ -114,7 +136,7 @@ function Navbar({ token, onLogout, role }) {
               Cerrar sesión
             </button>
 
-            {/* --- ÍCONO DE CARRITO (NUEVO) --- */}
+            {/* --- ÍCONO DE CARRITO --- */}
             <Link to="/carrito" className="relative text-neutral-300 p-2 rounded-full transition-all hover:bg-neutral-800 hover:text-white">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
