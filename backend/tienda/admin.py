@@ -3,8 +3,12 @@ from .models import (
     Profile, Producto, Plan, Suscripcion, 
     Carrito, CarritoItem, Pedido, PedidoItem,
 <<<<<<< HEAD
+<<<<<<< HEAD
     Review, Noticia, Notificacion, 
     ProductoImagen # <-- AÑADIR IMPORT
+=======
+    Review  # <-- AÑADIR IMPORT
+>>>>>>> parent of 281861c (se añadió el blog y sus respectivas funciones)
 =======
     Review  # <-- AÑADIR IMPORT
 >>>>>>> parent of 281861c (se añadió el blog y sus respectivas funciones)
@@ -28,10 +32,14 @@ admin.site.register(CarritoItem)
 admin.site.register(Pedido)
 admin.site.register(PedidoItem)
 <<<<<<< HEAD
+<<<<<<< HEAD
 admin.site.register(Review)
 admin.site.register(Noticia)
 admin.site.register(Notificacion)
 # admin.site.register(ProductoImagen) # No es necesario registrarlo suelto si está inline
+=======
+admin.site.register(Review) # <-- AÑADIR ESTA LÍNEA
+>>>>>>> parent of 281861c (se añadió el blog y sus respectivas funciones)
 =======
 admin.site.register(Review) # <-- AÑADIR ESTA LÍNEA
 >>>>>>> parent of 281861c (se añadió el blog y sus respectivas funciones)

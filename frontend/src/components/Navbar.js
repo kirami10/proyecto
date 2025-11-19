@@ -1,8 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback } from "react"; // <-- AÑADIDO useCallback
 import { Link } from "react-router-dom";
 <<<<<<< HEAD
+<<<<<<< HEAD
 import { useCart } from "../context/CartContext"; 
 import API_URL from "../api"; // Necesario para la API de Notificaciones
+=======
+import { useCart } from "../context/CartContext"; // <-- Importamos el hook del carrito
+>>>>>>> parent of 281861c (se añadió el blog y sus respectivas funciones)
 =======
 import { useCart } from "../context/CartContext"; // <-- Importamos el hook del carrito
 >>>>>>> parent of 281861c (se añadió el blog y sus respectivas funciones)
@@ -51,6 +55,7 @@ const formatDateTime = (isoString) => {
 
 function Navbar({ token, onLogout, role }) {
 <<<<<<< HEAD
+<<<<<<< HEAD
   const { itemCount } = useCart();
   const [notificaciones, setNotificaciones] = useState([]);
   
@@ -63,6 +68,9 @@ function Navbar({ token, onLogout, role }) {
   const notifRef = useRef(null);
   const userMenuRef = useRef(null);
   const adminMenuRef = useRef(null);
+=======
+  const { itemCount } = useCart(); // <-- Obtenemos el contador de items
+>>>>>>> parent of 281861c (se añadió el blog y sus respectivas funciones)
 =======
   const { itemCount } = useCart(); // <-- Obtenemos el contador de items
 >>>>>>> parent of 281861c (se añadió el blog y sus respectivas funciones)
@@ -229,6 +237,7 @@ function Navbar({ token, onLogout, role }) {
             )}
 
 <<<<<<< HEAD
+<<<<<<< HEAD
             {/* --- CAMPANA DE NOTIFICACIONES --- */}
             <div className="relative" ref={notifRef}>
                 <button 
@@ -274,6 +283,8 @@ function Navbar({ token, onLogout, role }) {
 
             {/* --- CARRITO --- */}
 =======
+=======
+>>>>>>> parent of 281861c (se añadió el blog y sus respectivas funciones)
             {/* --- AÑADIDO: Enlace a Historial de Pedidos --- */}
             <Link
               to="/historial"
@@ -297,6 +308,9 @@ function Navbar({ token, onLogout, role }) {
             </button>
 
             {/* --- ÍCONO DE CARRITO (NUEVO) --- */}
+<<<<<<< HEAD
+>>>>>>> parent of 281861c (se añadió el blog y sus respectivas funciones)
+=======
 >>>>>>> parent of 281861c (se añadió el blog y sus respectivas funciones)
             <Link to="/carrito" className="relative text-neutral-300 p-2 rounded-full transition-all hover:bg-neutral-800 hover:text-white">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

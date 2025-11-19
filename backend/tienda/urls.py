@@ -18,9 +18,13 @@ from .views import (
     descargar_boleta,
     product_reviews,
 <<<<<<< HEAD
+<<<<<<< HEAD
     moderate_review_detail,
     NoticiaViewSet,
     NotificacionViewSet,
+=======
+    moderate_review_detail  # <--- AÑADIDO
+>>>>>>> parent of 281861c (se añadió el blog y sus respectivas funciones)
 =======
     moderate_review_detail  # <--- AÑADIDO
 >>>>>>> parent of 281861c (se añadió el blog y sus respectivas funciones)
@@ -34,8 +38,11 @@ router.register(r'productos', ProductoViewSet, basename='producto')
 router.register(r'usuarios', UserAdminViewSet)
 router.register(r'planes', PlanViewSet)
 <<<<<<< HEAD
+<<<<<<< HEAD
 router.register(r'noticias', NoticiaViewSet)
 router.register(r'notificaciones', NotificacionViewSet) # <-- ¡CONSOLIDADO!
+=======
+>>>>>>> parent of 281861c (se añadió el blog y sus respectivas funciones)
 =======
 >>>>>>> parent of 281861c (se añadió el blog y sus respectivas funciones)
 

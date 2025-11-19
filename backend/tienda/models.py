@@ -145,6 +145,7 @@ class Review(models.Model):
 
     def __str__(self):
 <<<<<<< HEAD
+<<<<<<< HEAD
         return f'Review de {self.user.username} para {self.producto.nombre}'
 
 # --- Modelo de Blog/Noticias ---
@@ -181,6 +182,9 @@ class ProductoImagen(models.Model):
 
     def __str__(self):
         return f"Imagen de {self.producto.nombre}"
+=======
+        return f'Review de {self.user.username} para {self.producto.nombre}'
+>>>>>>> parent of 281861c (se añadió el blog y sus respectivas funciones)
 =======
         return f'Review de {self.user.username} para {self.producto.nombre}'
 >>>>>>> parent of 281861c (se añadió el blog y sus respectivas funciones)
