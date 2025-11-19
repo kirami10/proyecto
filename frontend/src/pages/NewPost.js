@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import API_URL from "../api";
-import toast from 'react-hot-toast'; // <-- AÑADIR IMPORT
+import toast from 'react-hot-toast';
 
 // --- Funciones Auxiliares ---
 const formatCLP = (value) => {
@@ -8,23 +8,32 @@ const formatCLP = (value) => {
   if (cleanValue === "") return "";
   return new Intl.NumberFormat("es-CL").format(parseInt(cleanValue, 10));
 };
+const cleanCLP = (formattedValue) => formattedValue.replace(/\./g, "");
 
-const cleanCLP = (formattedValue) => {
-  return formattedValue.replace(/\./g, "");
+const getImageUrl = (path) => {
+  if (!path) return null;
+  const BACKEND_BASE_URL = "http://localhost:8000";
+  return path.startsWith("http") ? path : `${BACKEND_BASE_URL}${path.startsWith("/") ? path : "/" + path}`;
 };
-// --- Fin Auxiliares ---
 
 function NewPost() {
   const [productos, setProductos] = useState([]);
   const [editingProduct, setEditingProduct] = useState(null);
+  
+  // Estados del formulario
   const [nombre, setNombre] = useState("");
   const [descripcion, setDescripcion] = useState("");
   const [precio, setPrecio] = useState("");
   const [stock, setStock] = useState("");
+  const [activo, setActivo] = useState(true);
 
-  const [selectedFiles, setSelectedFiles] = useState([]);
-  const [previewUrls, setPreviewUrls] = useState([]);
+  // Estados de Galería para edición
+  const [galleryItems, setGalleryItems] = useState([]); 
+  const [idsToDelete, setIdsToDelete] = useState([]); 
   const [currentIndex, setCurrentIndex] = useState(0);
+
+  // ESTADO NUEVO PARA BORRADO DE IMAGEN PRINCIPAL
+  const [shouldClearMainImage, setShouldClearMainImage] = useState(false);
 
   const fileInputRef = useRef(null);
   const token = localStorage.getItem("token");
@@ -33,8 +42,7 @@ function NewPost() {
     try {
       const response = await fetch(`${API_URL}/productos/`);
       if (response.ok) {
-        const data = await response.json();
-        setProductos(data);
+        setProductos(await response.json());
       }
     } catch (error) {
       console.error("Error cargando productos:", error);
@@ -48,26 +56,57 @@ function NewPost() {
   const handleImageChange = (e) => {
     const files = Array.from(e.target.files);
     if (files.length > 0) {
-      setSelectedFiles((prev) => [...prev, ...files]);
-      const newUrls = files.map((file) => URL.createObjectURL(file));
-      setPreviewUrls((prev) => [...prev, ...newUrls]);
+      const newItems = files.map(file => ({
+        id: null,
+        url: URL.createObjectURL(file),
+        file: file,
+        isMain: false
+      }));
+      
+      // Si estamos editando y no hay imágenes, el primer archivo pasa a ser el principal.
+      // Si ya hay una imagen principal original (isOriginalMain: true), el nuevo archivo la reemplaza en el vista previa.
+      if (editingProduct && !galleryItems.length && files.length) {
+         newItems[0].isMain = true;
+         newItems[0].isOriginalMain = true;
+      }
+      
+      setGalleryItems(prev => [...prev, ...newItems]);
     }
   };
-  const nextImage = (e) => { e.stopPropagation(); setCurrentIndex((prev) => (prev + 1) % previewUrls.length); };
-  const prevImage = (e) => { e.stopPropagation(); setCurrentIndex((prev) => (prev - 1 + previewUrls.length) % previewUrls.length); };
+
+  const nextImage = (e) => { e.stopPropagation(); setCurrentIndex((prev) => (prev + 1) % galleryItems.length); };
+  const prevImage = (e) => { e.stopPropagation(); setCurrentIndex((prev) => (prev - 1 + galleryItems.length) % galleryItems.length); };
+  
   const removeCurrentImage = (e) => {
     e.stopPropagation();
-    setSelectedFiles((prev) => prev.filter((_, i) => i !== currentIndex));
-    setPreviewUrls((prev) => prev.filter((_, i) => i !== currentIndex));
-    if (currentIndex >= previewUrls.length - 1) setCurrentIndex(Math.max(0, previewUrls.length - 2));
+    const itemToRemove = galleryItems[currentIndex];
+
+    // 1. Borrado de imágenes accesorias (tienen ID)
+    if (itemToRemove.id) {
+        setIdsToDelete(prev => [...prev, itemToRemove.id]);
+    } 
+
+    // 2. Borrado de imagen principal original (no tiene ID, pero tiene isOriginalMain)
+    if (editingProduct && itemToRemove.isOriginalMain) {
+        setShouldClearMainImage(true); 
+    }
+
+    setGalleryItems(prev => prev.filter((_, i) => i !== currentIndex));
+    
+    if (currentIndex >= galleryItems.length - 1) {
+        setCurrentIndex(Math.max(0, galleryItems.length - 2));
+    }
   };
+  
   const handleStockChange = (e) => {
     const value = e.target.value.replace(/\D/g, "");
     setStock(value);
   };
+
   const handlePriceChange = (e) => {
     setPrecio(formatCLP(e.target.value));
   };
+
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -76,16 +115,37 @@ function NewPost() {
     formData.append("descripcion", descripcion);
     formData.append("precio", cleanCLP(precio));
     formData.append("stock", stock);
-    if (selectedFiles.length > 0) {
-      formData.append("imagen", selectedFiles[0]);
+    formData.append("activo", activo);
+    
+    // 1. Enviar IDs a eliminar (JSON)
+    if (idsToDelete.length > 0) {
+        formData.append("ids_json", JSON.stringify(idsToDelete)); 
     }
 
-    const url = editingProduct
-      ? `${API_URL}/productos/${editingProduct.id}/`
-      : `${API_URL}/productos/`;
-    const method = editingProduct ? "PUT" : "POST";
+    // 2. Determinar si hay un nuevo archivo principal para subir
+    const firstItem = galleryItems[0];
+    const newMainFileExists = (firstItem && firstItem.file);
+    
+    if (newMainFileExists) {
+        // Si hay un nuevo archivo, lo subimos y este reemplaza cualquier imagen principal existente.
+        formData.append("imagen", firstItem.file); 
+        
+    } else if (editingProduct && shouldClearMainImage) {
+        // Si estamos editando, se marcó para borrar la principal (shouldClearMainImage: true), 
+        // y NO estamos subiendo un archivo para reemplazarla, enviamos la bandera para limpiar el campo.
+        formData.append("clear_main_image", "true"); 
+    }
 
-    const loadingToast = toast.loading(editingProduct ? 'Actualizando...' : 'Creando...'); // <-- AÑADIDO
+    // 3. Enviar archivos extra (los que no son el primer elemento y tienen 'file')
+    galleryItems.forEach((item, index) => {
+        if (item.file && index > 0) {
+            formData.append("imagenes_extra", item.file);
+        }
+    });
+
+    const url = editingProduct ? `${API_URL}/productos/${editingProduct.id}/` : `${API_URL}/productos/`;
+    const method = editingProduct ? "PUT" : "POST";
+    const loadingToast = toast.loading('Guardando...');
 
     try {
       const response = await fetch(url, {
@@ -93,29 +153,28 @@ function NewPost() {
         headers: { Authorization: `Bearer ${token}` },
         body: formData,
       });
-
-      toast.dismiss(loadingToast); // <-- Cerramos el toast
+      toast.dismiss(loadingToast);
 
       if (response.ok) {
-        toast.success(editingProduct ? "Producto actualizado" : "Producto creado"); // <-- MODIFICADO
+        toast.success("Guardado correctamente");
         resetForm();
         fetchProductos();
       } else {
-        toast.error("Error al guardar producto"); // <-- MODIFICADO
+        toast.error("Error al guardar");
       }
     } catch (error) {
-      toast.dismiss(loadingToast); // <-- Cerramos el toast
-      console.error("Error de red:", error);
-      toast.error("Error de red"); // <-- MODIFICADO
+      toast.dismiss(loadingToast);
+      console.error(error);
+      toast.error("Error de red");
     }
   };
 
+
   const handleDelete = (id) => {
-    // --- MODIFICADO: Confirmación con toast ---
     toast((t) => (
       <div className="bg-white text-black p-4 rounded-lg shadow-lg">
         <p className="font-semibold mb-2">Eliminar Producto</p>
-        <p className="mb-4">¿Seguro que quieres eliminar este producto?</p>
+        <p className="mb-4 text-sm">Esto desactivará el producto de la tienda.</p>
         <div className="flex gap-2">
           <button
             className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded-md text-sm"
@@ -135,7 +194,6 @@ function NewPost() {
         </div>
       </div>
     ), { duration: 6000 });
-    // --- FIN MODIFICACIÓN ---
   };
 
   const executeDelete = async (id) => {
@@ -144,16 +202,13 @@ function NewPost() {
          method: "DELETE",
          headers: { Authorization: `Bearer ${token}` },
        });
-       if (response.ok) {
+       if (response.ok) { 
          fetchProductos();
-         toast.success('Producto eliminado'); // <-- AÑADIDO
+         toast.success('Producto desactivado');
        } else {
-         toast.error("Error al eliminar"); // <-- MODIFICADO
+         toast.error("Error al eliminar");
        }
-     } catch (error) { 
-       console.error(error); 
-       toast.error("Error de red"); // <-- MODIFICADO
-     }
+     } catch (error) { toast.error("Error de red"); }
   };
 
   const handleEdit = (producto) => {
@@ -162,15 +217,38 @@ function NewPost() {
     setDescripcion(producto.descripcion);
     setPrecio(formatCLP(producto.precio.toString()));
     setStock(producto.stock.toString());
+    setActivo(producto.activo);
+    setIdsToDelete([]); 
+    setShouldClearMainImage(false); // Resetear estado
+
+    // Construir galería inicial
+    const initialGallery = [];
+    
     if (producto.imagen) {
-        setPreviewUrls([producto.imagen]);
-        setSelectedFiles([]);
-    } else {
-        setPreviewUrls([]);
-        setSelectedFiles([]);
+        // La imagen principal original tiene una bandera para rastrear su eliminación
+        initialGallery.push({
+            id: null, 
+            url: getImageUrl(producto.imagen),
+            file: null,
+            isMain: true,
+            isOriginalMain: true 
+        });
     }
+    
+    if (producto.imagenes && producto.imagenes.length > 0) {
+        producto.imagenes.forEach(img => {
+            initialGallery.push({
+                id: img.id, 
+                url: getImageUrl(img.imagen),
+                file: null,
+                isMain: false
+            });
+        });
+    }
+
+    setGalleryItems(initialGallery);
     setCurrentIndex(0);
-    window.scrollTo(0, 0); // <-- AÑADIDO: Sube al formulario
+    window.scrollTo(0, 0);
   };
 
   const resetForm = () => {
@@ -179,11 +257,14 @@ function NewPost() {
     setDescripcion("");
     setPrecio("");
     setStock("");
-    setSelectedFiles([]);
-    setPreviewUrls([]);
+    setActivo(true);
+    setGalleryItems([]);
+    setIdsToDelete([]);
+    setShouldClearMainImage(false); // Resetear estado
     setCurrentIndex(0);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
+
 
   return (
     <div className="min-h-screen bg-neutral-950 text-white p-6 flex flex-col items-center">
@@ -218,7 +299,7 @@ function NewPost() {
                         inputMode="numeric"
                         className="w-full bg-neutral-800 border border-neutral-700 py-2 pl-8 pr-4 rounded focus:outline-none focus:border-blue-500 transition"
                         value={precio}
-                        onChange={handlePriceChange}
+                        onChange={handlePriceChange} 
                         placeholder="Ej: 10.000"
                         required
                       />
@@ -231,10 +312,17 @@ function NewPost() {
                     inputMode="numeric"
                     className="w-full bg-neutral-800 border border-neutral-700 p-2 rounded focus:outline-none focus:border-blue-500 transition"
                     value={stock}
-                    onChange={handleStockChange}
+                    onChange={handleStockChange} 
                     placeholder="Ej: 50"
                     required
                   />
+              </div>
+
+              <div className="md:col-span-2">
+                  <div className="flex items-center gap-3 bg-neutral-800 p-3 rounded border border-neutral-700">
+                      <input type="checkbox" id="activo" className="w-5 h-5" checked={activo} onChange={(e) => setActivo(e.target.checked)} />
+                      <label htmlFor="activo" className="text-sm text-white cursor-pointer">Producto Activo</label>
+                  </div>
               </div>
 
               <div className="md:col-span-2">
@@ -263,21 +351,22 @@ function NewPost() {
           </div>
 
           {/* --- CARRUSEL DE PREVIEW --- */}
-          <div className="bg-neutral-900 p-6 rounded-xl shadow-lg border border-neutral-800 flex flex-col items-center justify-center sticky top-28"> {/* Modificado top-6 a top-28 */}
-               <h3 className="text-lg font-medium mb-4 text-neutral-300">Imágenes ({previewUrls.length})</h3>
-               <div className="relative w-full aspect-square bg-neutral-800 rounded-xl border-2 border-dashed border-neutral-700 flex items-center justify-center overflow-hidden mb-4 cursor-pointer hover:border-blue-500 transition group" onClick={() => fileInputRef.current.click()}>
-                   {previewUrls.length > 0 ? (
+          <div className="bg-neutral-900 p-6 rounded-xl shadow-lg border border-neutral-800 flex flex-col items-center justify-center sticky top-28">
+               <h3 className="text-lg font-medium mb-4 text-neutral-300">Imágenes ({galleryItems.length})</h3>
+               
+               <div onClick={() => fileInputRef.current.click()} className="relative w-full aspect-square bg-neutral-800 rounded-xl border-2 border-dashed border-neutral-700 flex items-center justify-center overflow-hidden mb-4 cursor-pointer hover:border-blue-500 transition group">
+                   {galleryItems.length > 0 ? (
                        <>
-                           <img src={previewUrls[currentIndex]} alt={`Preview ${currentIndex}`} className="w-full h-full object-cover" />
-                           {previewUrls.length > 1 && (
+                           <img src={galleryItems[currentIndex].url} alt={`Preview ${currentIndex}`} className="w-full h-full object-cover" />
+                           {galleryItems.length > 1 && (
                                <>
-                                   <button onClick={prevImage} className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/60 text-white p-2 rounded-full hover:bg-black/80 transition backdrop-blur-sm">
+                                   <button type="button" onClick={prevImage} className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/60 text-white p-2 rounded-full hover:bg-black/80 transition backdrop-blur-sm">
                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
                                    </button>
-                                   <button onClick={nextImage} className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/60 text-white p-2 rounded-full hover:bg-black/80 transition backdrop-blur-sm">
+                                   <button type="button" onClick={nextImage} className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/60 text-white p-2 rounded-full hover:bg-black/80 transition backdrop-blur-sm">
                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                                    </button>
-                                   <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-black/60 px-3 py-1 rounded-full text-xs text-white backdrop-blur-sm">{currentIndex + 1} / {previewUrls.length}</div>
+                                   <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-black/60 px-3 py-1 rounded-full text-xs text-white backdrop-blur-sm">{currentIndex + 1} / {galleryItems.length}</div>
                                </>
                            )}
                        </>
@@ -288,7 +377,7 @@ function NewPost() {
                        </div>
                    )}
                </div>
-               {previewUrls.length > 0 && (
+               {galleryItems.length > 0 && (
                   <button onClick={removeCurrentImage} className="text-sm text-red-400 hover:text-red-300 transition flex items-center gap-1">
                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
                      Eliminar esta imagen
@@ -297,7 +386,7 @@ function NewPost() {
           </div>
         </div>
 
-        {/* --- LISTA DE INVENTARIO (sin cambios) --- */}
+        {/* --- LISTA DE INVENTARIO (TABLA) --- */}
         <div className="bg-neutral-900 p-6 rounded-xl shadow-lg border border-neutral-800">
           <h2 className="text-xl font-semibold mb-6 text-blue-400 border-b border-neutral-800 pb-2">Inventario Actual</h2>
           {productos.length === 0 ? (
@@ -315,13 +404,19 @@ function NewPost() {
                 </thead>
                 <tbody>
                   {productos.map((prod) => (
-                    <tr key={prod.id} className="border-b border-neutral-800 hover:bg-neutral-800/30 transition duration-150">
+                    <tr 
+                        key={prod.id} 
+                        className={`border-b border-neutral-800 transition ${!prod.activo ? 'bg-red-900/10 opacity-60' : 'hover:bg-neutral-800/30'}`}
+                    >
                       <td className="p-4 flex items-center gap-4">
                         <div className="w-16 h-16 bg-neutral-800 rounded-lg overflow-hidden flex-shrink-0 border border-neutral-700">
-                             {prod.imagen ? <img src={prod.imagen} alt={prod.nombre} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-neutral-600 text-xs">Sin foto</div>}
+                             {prod.imagen ? <img src={getImageUrl(prod.imagen)} alt={prod.nombre} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-neutral-600 text-xs">Sin foto</div>}
                         </div>
                         <div>
-                             <p className="font-semibold text-white">{prod.nombre}</p>
+                             <div className="flex items-center gap-2">
+                                <p className="font-semibold text-white">{prod.nombre}</p>
+                                {!prod.activo && <span className="text-[10px] font-bold bg-red-600 text-white px-1.5 py-0.5 rounded">INACTIVO</span>}
+                             </div>
                              <p className="text-sm text-neutral-500 truncate max-w-xs">{prod.descripcion || "Sin descripción"}</p>
                         </div>
                       </td>
@@ -336,9 +431,18 @@ function NewPost() {
                             <button onClick={() => handleEdit(prod)} className="p-2 text-blue-400 hover:bg-blue-900/20 rounded-lg transition" title="Editar">
                               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                             </button>
-                            <button onClick={() => handleDelete(prod.id)} className="p-2 text-red-400 hover:bg-red-900/20 rounded-lg transition" title="Eliminar">
-                              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                            </button>
+                            
+                            {prod.activo && (
+                                <button onClick={() => handleDelete(prod.id)} className="p-2 text-red-400 hover:bg-red-900/20 rounded-lg transition" title="Eliminar (Desactivar)">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                </button>
+                            )}
+                            {!prod.activo && (
+                                <button onClick={() => handleEdit({...prod, activo: true})} className="p-2 text-green-400 hover:bg-green-900/20 rounded-lg transition" title="Restaurar (Activar)">
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                                </button>
+                            )}
+
                           </div>
                       </td>
                     </tr>

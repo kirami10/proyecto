@@ -1,34 +1,33 @@
 from rest_framework import viewsets, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly, IsAdminUser
+from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly, IsAdminUser, AllowAny
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework_simplejwt.views import TokenObtainPairView
 from django.contrib.auth.models import User
+from django.db.models import Avg, Sum 
+from rest_framework.decorators import api_view, permission_classes, action
+import json 
+from django.shortcuts import get_object_or_404
+# --- IMPORTACIÓN DE MODELOS (LISTA CONSOLIDADA) ---
 from .models import (
     Profile, Producto, Plan, Suscripcion, Carrito, CarritoItem,
-    Pedido, PedidoItem, Review, Noticia # <-- AÑADIDO Review
+    Pedido, PedidoItem, Review, Noticia, Notificacion, ProductoImagen # <-- Todos los modelos
 )
+# --- IMPORTACIÓN DE SERIALIZERS (LISTA CONSOLIDADA) ---
 from .serializers import (
     RegisterSerializer, ProfileSerializer, MyTokenObtainPairSerializer, 
     ProductoSerializer, PlanSerializer, SuscripcionSerializer, 
     CarritoSerializer, CarritoItemSerializer,
-    PedidoSerializer, ReviewSerializer, NoticiaSerializer # <-- AÑADIDO ReviewSerializer
+    PedidoSerializer, ReviewSerializer, NoticiaSerializer, NotificacionSerializer # <-- Todos los serializers
 )
-import requests
-from django.http import JsonResponse
-from rest_framework.decorators import api_view
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import AllowAny
-from django.shortcuts import get_object_or_404
-from .utils import render_to_pdf # Importación de PDF
+from .utils import render_to_pdf
 
-
-# --- Vista de Token (Sin cambios) ---
+# --- VISTA DE AUTENTICACIÓN ---
 class MyTokenObtainPairView(TokenObtainPairView):
     serializer_class = MyTokenObtainPairSerializer
 
-# --- Vista de Registro (Sin cambios) ---
+# --- VISTA DE REGISTRO ---
 class RegisterView(APIView):
     def post(self, request):
         data = request.data
@@ -38,7 +37,7 @@ class RegisterView(APIView):
             return Response({"message": "Usuario creado correctamente"}, status=201)
         return Response(serializer.errors, status=400)
 
-# --- Vista de Perfil (Sin cambios) ---
+# --- VISTA DE PERFIL (CLIENTE/ADMIN) ---
 class ProfileView(APIView):
     permission_classes = [IsAuthenticated]
     parser_classes = (MultiPartParser, FormParser, JSONParser)
@@ -58,11 +57,7 @@ class ProfileView(APIView):
             return Response(serializer.data)
         return Response(serializer.errors, status=400)
 
-# --- Vistas de Producto, Admin, Plan, MiPlan (Sin cambios) ---
-class ProductoViewSet(viewsets.ModelViewSet):
-    queryset = Producto.objects.all()
-    serializer_class = ProductoSerializer
-
+# --- VISTA DE GESTIÓN DE USUARIOS (ADMIN) ---
 class UserAdminViewSet(viewsets.ModelViewSet):
     queryset = Profile.objects.all()
     serializer_class = ProfileSerializer
@@ -102,6 +97,7 @@ class UserAdminViewSet(viewsets.ModelViewSet):
         response_data['activo'] = profile.user.is_active
         return Response(response_data)
     
+# --- VISTA DE PLANES ---
 class PlanViewSet(viewsets.ModelViewSet):
     queryset = Plan.objects.all()
     serializer_class = PlanSerializer
@@ -112,6 +108,7 @@ class PlanViewSet(viewsets.ModelViewSet):
             permission_classes = [IsAdminUser]
         return [permission() for permission in permission_classes]
 
+# --- VISTA DE MI PLAN ACTUAL ---
 class MiPlanView(APIView):
     permission_classes = [IsAuthenticated]
     def get(self, request):
@@ -124,8 +121,88 @@ class MiPlanView(APIView):
         serializer = SuscripcionSerializer(suscripcion)
         return Response(serializer.data)
 
+# --- VISTA DE HISTORIAL DE PLANES ---
+class HistorialPlanesView(APIView):
+    permission_classes = [IsAuthenticated]
+    def get(self, request):
+        suscripciones = Suscripcion.objects.filter(user=request.user).order_by('-fecha_inicio')
+        serializer = SuscripcionSerializer(suscripciones, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
-# --- Vistas del Carrito (Sin cambios) ---
+
+# --- VISTAS DE PRODUCTOS (GESTIÓN Y TIENDA) ---
+class ProductoViewSet(viewsets.ModelViewSet):
+    serializer_class = ProductoSerializer
+
+    def get_queryset(self):
+        if self.request.user.is_staff:
+            # Admin ve todos los productos, incluyendo inactivos
+            return Producto.objects.all()
+        # Cliente/Público solo ve productos activos
+        return Producto.objects.filter(activo=True)
+
+    # Lógica para la creación (manejo de multi-imagen)
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        producto = serializer.save()
+        
+        imagenes = request.FILES.getlist('imagenes_extra')
+        for img in imagenes:
+            ProductoImagen.objects.create(producto=producto, imagen=img)
+
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
+    # Lógica para la actualización (manejo de multi-imagen y borrado)
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        producto = serializer.save()
+
+        # 1. BORRAR IMÁGENES ACCESORIAS (desde el JSON string)
+        ids_json = request.data.get('ids_json') 
+        
+        if ids_json:
+            try:
+                ids_eliminar = json.loads(ids_json)
+            except json.JSONDecodeError:
+                ids_eliminar = []
+        else:
+            ids_eliminar = []
+        
+        if ids_eliminar:
+            ids_enteros = [int(id_str) for id_str in ids_eliminar if str(id_str).isdigit()]
+            if ids_enteros:
+                ProductoImagen.objects.filter(id__in=ids_enteros, producto=producto).delete()
+
+        # 2. BORRAR IMAGEN PRINCIPAL (si se envía la bandera 'clear_main_image')
+        clear_main = request.data.get('clear_main_image') == 'true'
+        
+        if clear_main and 'imagen' not in request.FILES:
+            if producto.imagen:
+                producto.imagen.delete(save=False) 
+            producto.imagen = None
+            producto.save(update_fields=['imagen']) 
+        
+        # 3. AGREGAR IMÁGENES NUEVAS
+        imagenes = request.FILES.getlist('imagenes_extra')
+        for img in imagenes:
+            ProductoImagen.objects.create(producto=producto, imagen=img)
+
+        return Response(serializer.data)
+
+    # Lógica para Soft Delete
+    def destroy(self, request, *args, **kwargs):
+        producto = self.get_object()
+        producto.activo = False
+        producto.save()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+# --- VISTAS DE CARRITO (Sin cambios) ---
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def obtener_carrito(request):
@@ -211,7 +288,7 @@ def vaciar_carrito(request):
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-# --- Vistas de Pedido/Boleta (Sin cambios) ---
+# --- VISTAS DE PEDIDO / BOLETA ---
 class HistorialPedidosView(APIView):
     permission_classes = [IsAuthenticated]
     def get(self, request):
@@ -234,26 +311,17 @@ def descargar_boleta(request, pedido_id):
     return pdf
 
 
-# --- VISTAS DE RESEÑAS (MODIFICADAS) ---
-
+# --- VISTAS DE RESEÑAS ---
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticatedOrReadOnly]) 
 def product_reviews(request, producto_id):
-    """
-    (GET) Obtiene reseñas: TODAS para el admin, VISIBLES para el público.
-    (POST) Crea una nueva reseña (visible por defecto).
-    """
     producto = get_object_or_404(Producto, id=producto_id)
 
     if request.method == 'GET':
-        # --- LÓGICA DE VISIBILIDAD MODIFICADA ---
         if request.user.is_authenticated and request.user.is_staff:
-            # Si el usuario es staff (Admin o Contadora), ve todo
             reviews = Review.objects.filter(producto=producto).order_by('-creado_en')
         else:
-            # El público general solo ve las reseñas visibles
             reviews = Review.objects.filter(producto=producto, is_visible=True).order_by('-creado_en')
-        # --- FIN DE LA MODIFICACIÓN ---
             
         serializer = ReviewSerializer(reviews, many=True, context={'request': request})
         return Response(serializer.data)
@@ -266,20 +334,14 @@ def product_reviews(request, producto_id):
         
         serializer = ReviewSerializer(data=request.data)
         if serializer.is_valid():
-            # El modelo se encarga de 'is_visible=True' por defecto
             serializer.save(user=user, producto=producto)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-
 @api_view(['PATCH'])
-@permission_classes([IsAdminUser]) # <-- ¡Solo el Dueño (Admin) puede usar esto!
+@permission_classes([IsAdminUser]) 
 def moderate_review_detail(request, review_id):
-    """
-    (Admin) Oculta o muestra una reseña específica.
-    Espera un body: { "is_visible": false } o { "is_visible": true }
-    """
     review = get_object_or_404(Review, id=review_id)
     
     serializer = ReviewSerializer(review, data=request.data, partial=True, context={'request': request})
@@ -290,7 +352,33 @@ def moderate_review_detail(request, review_id):
     
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-class NoticiaViewSet(viewsets.ModelViewSet): # <-- Cambiado de ReadOnlyModelViewSet a ModelViewSet
+
+# --- VISTAS DE NOTIFICACIONES ---
+class NotificacionViewSet(viewsets.ModelViewSet):
+    queryset = Notificacion.objects.all().order_by('-creado_en')
+    serializer_class = NotificacionSerializer
+    pagination_class = None 
+    
+    def get_permissions(self):
+        if self.action in ['list', 'retrieve']:
+            return [IsAuthenticated()] 
+        return [IsAdminUser()]
+
+    def list(self, request, *args, **kwargs):
+        # Aseguramos que solo los usuarios logueados obtengan la lista
+        if not request.user.is_authenticated:
+            return Response({'detail': 'No autenticado'}, status=status.HTTP_401_UNAUTHORIZED)
+        return super().list(request, *args, **kwargs)
+
+@action(detail=False, methods=['post'], permission_classes=[IsAuthenticated])
+def marcar_todas_leidas(request):
+    user = request.user
+    notificaciones_no_leidas = Notificacion.objects.exclude(leido_por=user)
+    for notif in notificaciones_no_leidas:
+        notif.leido_por.add(user)
+    return Response({"status": "ok", "message": "Todas marcadas como leídas"})
+
+class NoticiaViewSet(viewsets.ModelViewSet):
     """
     Vista para noticias.
     - Cualquiera puede ver (list/retrieve).

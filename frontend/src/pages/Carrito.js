@@ -2,14 +2,13 @@ import React, { useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../AuthContext";
-import toast from 'react-hot-toast'; // <-- AÑADIR IMPORT
+import toast from 'react-hot-toast'; 
 
-// --- Helpers de Formato ---
+// --- Helpers ---
 const formatCLP = (value) => {
   const cleanValue = (value || "0").toString().replace(/\D/g, "");
   return new Intl.NumberFormat("es-CL").format(parseInt(cleanValue, 10));
 };
-
 const getImageUrl = (path) => {
   if (!path) return null;
   const BACKEND_BASE_URL = "http://localhost:8000";
@@ -29,19 +28,27 @@ function Carrito() {
     }
   }, [navigate]);
 
+  // --- LÓGICA DE AUMENTAR CON VALIDACIÓN DE STOCK ---
+  const handleIncrease = (item) => {
+    // Verificamos contra 'stock_producto' que viene del serializer nuevo
+    if (item.cantidad >= item.stock_producto) {
+        toast.error(`No puedes añadir más. Solo quedan ${item.stock_producto} en stock.`);
+        return;
+    }
+    increaseQuantity(item);
+  };
+  // --- FIN LÓGICA ---
 
   const handlePago = async () => {
     if (!authToken || !user?.user_id) {
-      toast.error("No estás autenticado. Por favor, inicia sesión."); // <-- MODIFICADO
+      toast.error("No estás autenticado. Por favor, inicia sesión."); 
       return;
     }
     
     const buy_order = `C${user.user_id}T${Math.floor(Date.now() / 1000)}`;
     const return_url = "http://127.0.0.1:8000/api/webpay/return/"; 
 
-    // --- AÑADIDO: toast.loading ---
     const loadingToast = toast.loading('Conectando con Webpay...');
-    // --- FIN ADICIÓN ---
 
     try {
       const response = await fetch("http://127.0.0.1:8000/api/webpay/create/", {
@@ -63,17 +70,16 @@ function Carrito() {
       try {
         data = JSON.parse(text);
       } catch {
-        toast.dismiss(loadingToast); // <-- Cerramos el toast
+        toast.dismiss(loadingToast); 
         console.error("Respuesta no válida del backend:", text);
-        toast.error("Error en la respuesta del servidor."); // <-- MODIFICADO
+        toast.error("Error en la respuesta del servidor."); 
         return;
       }
 
-      toast.dismiss(loadingToast); // <-- Cerramos el toast
+      toast.dismiss(loadingToast); 
 
       if (response.ok && data.url && data.token) {
         sessionStorage.setItem('webpay_in_progress', 'true');
-        
         const form = document.createElement("form");
         form.method = "POST";
         form.action = data.url;
@@ -85,13 +91,13 @@ function Carrito() {
         document.body.appendChild(form);
         form.submit();
       } else {
-        toast.error("No se pudo iniciar la transacción con Webpay."); // <-- MODIFICADO
+        toast.error("No se pudo iniciar la transacción con Webpay."); 
         console.error("Error en respuesta de Webpay:", data);
       }
     } catch (error) {
-      toast.dismiss(loadingToast); // <-- Cerramos el toast si hay error
+      toast.dismiss(loadingToast); 
       console.error("Error al conectar con el backend:", error);
-      toast.error("Error al conectar con el servidor."); // <-- MODIFICADO
+      toast.error("Error al conectar con el servidor."); 
     }
   };
 
@@ -132,6 +138,10 @@ function Carrito() {
                 <div className="flex-1 ml-4">
                   <h3 className="text-lg font-semibold">{item.nombre_producto}</h3>
                   <p className="text-sm text-neutral-400">${formatCLP(item.precio_producto)} c/u</p>
+                  {/* Aviso visual si es el último */}
+                  {item.cantidad >= item.stock_producto && (
+                      <span className="text-xs text-orange-400 font-medium">¡Máximo stock alcanzado!</span>
+                  )}
                 </div>
                 <div className="flex items-center gap-2 border border-neutral-700 rounded-lg p-1">
                   <button
@@ -142,8 +152,8 @@ function Carrito() {
                   </button>
                   <span className="w-8 text-center font-bold">{item.cantidad}</span>
                   <button
-                    onClick={() => increaseQuantity(item)}
-                    className="px-2 py-1 rounded hover:bg-neutral-700"
+                    onClick={() => handleIncrease(item)} // <-- Usamos el nuevo handler
+                    className={`px-2 py-1 rounded ${item.cantidad >= item.stock_producto ? 'text-neutral-600 cursor-not-allowed' : 'hover:bg-neutral-700'}`}
                   >
                     +
                   </button>

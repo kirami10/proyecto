@@ -1,11 +1,10 @@
 from rest_framework import serializers
+from django.db.models import Avg, Sum
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth.models import User
-from .models import Review
-# --- MODIFICADO: Añadimos Pedido y PedidoItem ---
 from .models import (
     Profile, Producto, Plan, Suscripcion, Carrito, CarritoItem, 
-    Pedido, PedidoItem, Noticia
+    Pedido, PedidoItem, Review, Noticia, Notificacion, ProductoImagen # <-- CONSOLIDADO
 )
 
 # --- Serializador para Token JWT (con roles) ---
@@ -37,7 +36,6 @@ class RegisterSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Las contraseñas no coinciden")
         return data
     def create(self, validated_data):
-        # ... (código de creación de usuario y perfil sin cambios) ...
         username = validated_data['username']
         email = validated_data['email']
         password = validated_data['password']
@@ -68,7 +66,6 @@ class ProfileSerializer(serializers.ModelSerializer):
                   'rut', 'numero_personal', 'numero_emergencia', 'role']
         read_only_fields = ['rut', 'username']
     def update(self, instance, validated_data):
-        # ... (código de actualización de perfil sin cambios) ...
         user_data = validated_data.pop('user', {})
         email = user_data.get('email')
         role = validated_data.get('role', instance.role)
@@ -92,10 +89,29 @@ class ProfileSerializer(serializers.ModelSerializer):
         user.save()
         return instance
 
+class ProductoImagenSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProductoImagen
+        fields = ['id', 'imagen']
+
 class ProductoSerializer(serializers.ModelSerializer):
+    rating_promedio = serializers.SerializerMethodField()
+    total_vendidos = serializers.SerializerMethodField()
+    
+    # Incluimos las imágenes extra (read_only porque la subida la manejamos manual en la vista)
+    imagenes = ProductoImagenSerializer(many=True, read_only=True)
+
     class Meta:
         model = Producto
         fields = '__all__'
+
+    def get_rating_promedio(self, obj):
+        promedio = obj.reviews.aggregate(Avg('rating'))['rating__avg']
+        return round(promedio, 1) if promedio else 0
+
+    def get_total_vendidos(self, obj):
+        total = obj.pedidoitem_set.filter(pedido__estado='PAGADO').aggregate(Sum('cantidad'))['cantidad__sum']
+        return total if total else 0
 
 class PlanSerializer(serializers.ModelSerializer):
     class Meta:
@@ -106,7 +122,7 @@ class SuscripcionSerializer(serializers.ModelSerializer):
     plan = PlanSerializer(read_only=True) 
     class Meta:
         model = Suscripcion
-        fields = ['id', 'plan', 'fecha_inicio', 'fecha_vencimiento', 'activa']
+        fields = ['id', 'plan', 'fecha_inicio', 'fecha_vencimiento', 'activa', 'orden_compra']
 
 
 # --- Serializers de Carrito ---
@@ -114,32 +130,29 @@ class CarritoItemSerializer(serializers.ModelSerializer):
     nombre_producto = serializers.CharField(source='producto.nombre', read_only=True)
     precio_producto = serializers.IntegerField(source='producto.precio', read_only=True)
     imagen_producto = serializers.ImageField(source='producto.imagen', read_only=True)
-    subtotal = serializers.IntegerField(read_only=True) # <-- Lee la property 'subtotal'
+    
+    stock_producto = serializers.IntegerField(source='producto.stock', read_only=True)
+    
+    subtotal = serializers.IntegerField(read_only=True)
 
     class Meta:
         model = CarritoItem
-        fields = ['id', 'producto', 'nombre_producto', 'precio_producto', 'imagen_producto', 'cantidad', 'subtotal']
+        fields = ['id', 'producto', 'nombre_producto', 'precio_producto', 'imagen_producto', 'stock_producto', 'cantidad', 'subtotal']
 
 class CarritoSerializer(serializers.ModelSerializer):
     items = CarritoItemSerializer(many=True, read_only=True)
-    total = serializers.SerializerMethodField() # <-- Campo total calculado
+    total = serializers.SerializerMethodField()
 
     class Meta:
         model = Carrito
         fields = ['id', 'user', 'items', 'total']
 
     def get_total(self, obj):
-        # Calcula el total sumando subtotales de items
         return sum(item.subtotal for item in obj.items.all())
 
 
-# --- AÑADIDO: Serializers de Pedido ---
-
+# --- Serializers de Pedido ---
 class PedidoItemSerializer(serializers.ModelSerializer):
-    """
-    Serializa un item de un pedido (lo que el usuario compró).
-    """
-    # Obtenemos el nombre y la imagen del producto relacionado
     nombre_producto = serializers.CharField(source='producto.nombre', read_only=True)
     imagen_producto = serializers.ImageField(source='producto.imagen', read_only=True)
 
@@ -150,10 +163,6 @@ class PedidoItemSerializer(serializers.ModelSerializer):
 
 
 class PedidoSerializer(serializers.ModelSerializer):
-    """
-    Serializa un pedido completo, incluyendo sus items.
-    """
-    # Usamos el PedidoItemSerializer anidado para mostrar los items
     items = PedidoItemSerializer(many=True, read_only=True)
 
     class Meta:
@@ -161,6 +170,8 @@ class PedidoSerializer(serializers.ModelSerializer):
         fields = ['id', 'user', 'orden_compra', 'monto_total', 
                   'creado_en', 'estado', 'items']
 
+
+# --- Serializer de Reseña ---
 class ReviewSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source='user.username', read_only=True)
     
@@ -169,11 +180,28 @@ class ReviewSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'producto', 'user', 'username', 
             'rating', 'comentario', 'creado_en', 
-            'is_visible'  # <-- AÑADIR ESTO A LA LISTA
+            'is_visible' 
         ]
         read_only_fields = ('user', 'producto')
 
+
+# --- Serializer de Noticia (Blog) ---
 class NoticiaSerializer(serializers.ModelSerializer):
     class Meta:
         model = Noticia
         fields = '__all__'
+
+
+# --- Serializer de Notificación ---
+class NotificacionSerializer(serializers.ModelSerializer):
+    leida = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Notificacion
+        fields = ['id', 'titulo', 'mensaje', 'tipo', 'creado_en', 'leida']
+
+    def get_leida(self, obj):
+        request = self.context.get('request')
+        if request and request.user and request.user.is_authenticated:
+            return obj.leido_por.filter(id=request.user.id).exists()
+        return False

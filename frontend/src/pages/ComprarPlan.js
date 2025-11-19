@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../AuthContext";
 import API_URL from "../api";
-import toast from 'react-hot-toast'; // <-- AÑADIR IMPORT
+import toast from 'react-hot-toast';
 
 // Helper para formato CLP
 const formatCLP = (value) => {
@@ -18,6 +18,17 @@ function ComprarPlan() {
   
   const { authToken, user } = useAuth(); 
   const navigate = useNavigate();
+
+  // --- AÑADIDO: Detección de cancelación por "Botón Atrás" ---
+  useEffect(() => {
+    const inProgress = sessionStorage.getItem('webpay_in_progress');
+    if (inProgress === 'true') {
+      sessionStorage.removeItem('webpay_in_progress');
+      // Redirigimos indicando que el origen fue un plan
+      navigate('/resultado?status=aborted_by_user&origin=plan');
+    }
+  }, [navigate]);
+  // --- FIN AÑADIDO ---
 
   useEffect(() => {
     const fetchPlan = async () => {
@@ -41,15 +52,13 @@ function ComprarPlan() {
 
   const handlePago = async () => {
     if (!authToken || !plan || !user?.user_id) {
-        toast.error("No se pudo obtener tu ID de usuario. Por favor, vuelve a iniciar sesión."); // <-- MODIFICADO
+        toast.error("No se pudo obtener tu ID de usuario. Por favor, vuelve a iniciar sesión.");
         return;
     }
 
     const buy_order = `P${plan.id}U${user.user_id}T${Math.floor(Date.now() / 1000)}`;
-
-    // --- AÑADIDO: toast.loading ---
+    
     const loadingToast = toast.loading('Conectando con Webpay...');
-    // --- FIN ADICIÓN ---
 
     try {
       const response = await fetch("http://127.0.0.1:8000/api/webpay/create/", {
@@ -67,10 +76,13 @@ function ComprarPlan() {
       });
 
       const data = await response.json();
-      toast.dismiss(loadingToast); // <-- Cerramos el toast de carga
+      toast.dismiss(loadingToast);
 
       if (response.ok && data.url && data.token) {
+        // --- AÑADIDO: Marcamos que el proceso inició ---
         sessionStorage.setItem('webpay_in_progress', 'true');
+        // --- FIN AÑADIDO ---
+
         const form = document.createElement("form");
         form.method = "POST";
         form.action = data.url;
@@ -82,12 +94,12 @@ function ComprarPlan() {
         document.body.appendChild(form);
         form.submit();
       } else {
-        toast.error("No se pudo iniciar la transacción con Webpay."); // <-- MODIFICADO
+        toast.error("No se pudo iniciar la transacción con Webpay.");
         console.error("Error en respuesta de Webpay:", data);
       }
     } catch (error) {
-      toast.dismiss(loadingToast); // <-- Cerramos el toast si hay error
-      toast.error("Error al conectar con el backend."); // <-- MODIFICADO
+      toast.dismiss(loadingToast);
+      toast.error("Error al conectar con el backend.");
       console.error("Error al conectar con el backend:", error);
     }
   };

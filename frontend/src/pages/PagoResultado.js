@@ -6,42 +6,60 @@ function PagoResultado() {
   const [searchParams] = useSearchParams();
   const status = searchParams.get("status");
   const amount = searchParams.get("amount");
-  const buyOrder = searchParams.get("buy_order") || ""; // <-- Asegurarnos de que no sea null
+  const buyOrder = searchParams.get("buy_order") || "";
+  const origin = searchParams.get("origin"); // <-- Capturamos el origen (plan o carrito)
+  
   const { clearCart } = useCart();
   const [processed, setProcessed] = useState(false);
 
   useEffect(() => {
     sessionStorage.removeItem('webpay_in_progress');
 
-    // Solo limpiamos el carrito si fue una compra de carrito (CART-)
-    if (status === "success" && buyOrder.startsWith("CART-") && !processed) {
+    // Solo limpiamos el carrito si fue una compra de carrito (CART-) exitosa
+    if (status === "success" && buyOrder.startsWith("C") && !processed) {
       clearCart(false); 
       setProcessed(true);
     }
-  }, [status, clearCart, processed, buyOrder]); // <-- Añadido buyOrder
+  }, [status, clearCart, processed, buyOrder]);
 
-  // --- AÑADIDO: Lógica para el botón de éxito ---
   const renderSuccessLink = () => {
-    if (buyOrder.startsWith("PLAN-")) {
+    if (buyOrder.startsWith("P")) { // P de Plan
       return (
         <Link to="/mi-plan" className="block w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition">
           Ver Mi Plan
         </Link>
       );
     }
-    if (buyOrder.startsWith("CART-")) {
+    if (buyOrder.startsWith("C")) { // C de Carrito
       return (
         <Link to="/historial" className="block w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition">
           Ver Mis Pedidos
         </Link>
       );
     }
-    // Fallback por si acaso
     return (
       <Link to="/profile" className="block w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition">
         Ir al Perfil
       </Link>
     );
+  };
+
+  // --- AÑADIDO: Lógica dinámica para el botón de error ---
+  const renderErrorLink = () => {
+      // Si viene de un plan (origin=plan) o la orden fallida era de plan (P...)
+      if (origin === 'plan' || buyOrder.startsWith('P')) {
+          return (
+            <Link to="/planes" className="block w-full bg-neutral-700 hover:bg-neutral-600 text-white font-bold py-3 rounded-lg transition">
+              Volver a Planes
+            </Link>
+          );
+      }
+      // Por defecto volvemos al carrito
+      return (
+        <Link to="/carrito" className="block w-full bg-neutral-700 hover:bg-neutral-600 text-white font-bold py-3 rounded-lg transition">
+          Volver al Carrito
+        </Link>
+      );
   };
   // --- FIN AÑADIDO ---
 
@@ -70,7 +88,7 @@ function PagoResultado() {
               </p>
             </div>
 
-            {renderSuccessLink()} {/* <-- MODIFICADO */}
+            {renderSuccessLink()}
 
           </>
         ) : (
@@ -87,9 +105,7 @@ function PagoResultado() {
                 : "Hubo un problema al procesar tu pago."}
             </p>
             
-            <Link to="/carrito" className="block w-full bg-neutral-700 hover:bg-neutral-600 text-white font-bold py-3 rounded-lg transition">
-              Volver al Carrito
-            </Link>
+            {renderErrorLink()} {/* <-- Usamos el botón dinámico */}
           </>
         )}
       </div>

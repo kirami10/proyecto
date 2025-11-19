@@ -27,19 +27,31 @@ class Profile(models.Model):
 class Producto(models.Model):
     nombre = models.CharField(max_length=100)
     descripcion = models.TextField(blank=True)
-    precio = models.IntegerField() # Usamos IntegerField para pesos chilenos
+    precio = models.IntegerField()
     stock = models.IntegerField(default=0)
     imagen = models.ImageField(upload_to='productos/', null=True, blank=True)
+    
+    activo = models.BooleanField(default=True) 
+
     creado_en = models.DateTimeField(auto_now_add=True)
     actualizado_en = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return self.nombre
     
+# --- Modelo de Imágenes Adicionales (Galería) ---
+class ProductoImagen(models.Model):
+    producto = models.ForeignKey(Producto, on_delete=models.CASCADE, related_name='imagenes')
+    imagen = models.ImageField(upload_to='productos/galeria/')
+
+    def __str__(self):
+        return f"Imagen de {self.producto.nombre}"
+# --- Fin Modelos de Producto ---
+
 class Plan(models.Model):
     nombre = models.CharField(max_length=50)
-    precio = models.DecimalField(max_digits=10, decimal_places=0)  # Precio mensual
-    duracion_meses = models.PositiveIntegerField(default=1)  # Duración en meses
+    precio = models.DecimalField(max_digits=10, decimal_places=0) 
+    duracion_meses = models.PositiveIntegerField(default=1) 
     descripcion = models.TextField(blank=True)
     creado_en = models.DateTimeField(auto_now_add=True)
     actualizado_en = models.DateTimeField(auto_now=True)
@@ -65,7 +77,7 @@ class Suscripcion(models.Model):
         super().save(*args, **kwargs)
 
 
-# --- AÑADIDO: Modelos de Carrito ---
+# --- Modelos de Carrito ---
 class Carrito(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='carrito')
     creado_en = models.DateTimeField(default=timezone.now)
@@ -78,19 +90,16 @@ class CarritoItem(models.Model):
     producto = models.ForeignKey(Producto, on_delete=models.CASCADE)
     cantidad = models.PositiveIntegerField(default=1)
 
-    @property # <-- Convertido a property
+    @property
     def subtotal(self):
         return self.producto.precio * self.cantidad
 
-    def __str__(self): # <-- Corregido de 'str' a '__str__'
+    def __str__(self):
         return f"{self.producto.nombre} x {self.cantidad}"
     
 class Pedido(models.Model):
-    """
-    Representa una orden de compra de productos completada (pagada).
-    """
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="pedidos")
-    orden_compra = models.CharField(max_length=100, unique=True) # El buy_order de Webpay
+    orden_compra = models.CharField(max_length=100, unique=True)
     monto_total = models.IntegerField()
     creado_en = models.DateTimeField(auto_now_add=True)
     
@@ -105,28 +114,21 @@ class Pedido(models.Model):
         return f"Pedido {self.id} de {self.user.username}"
 
 class PedidoItem(models.Model):
-    """
-    Representa un item dentro de un Pedido.
-    """
     pedido = models.ForeignKey(Pedido, on_delete=models.CASCADE, related_name="items")
-    producto = models.ForeignKey(Producto, on_delete=models.PROTECT) # Proteger para no borrar producto si está en un pedido
+    producto = models.ForeignKey(Producto, on_delete=models.PROTECT) 
     cantidad = models.PositiveIntegerField(default=1)
-    # Guardamos el precio al momento de la compra
     precio_al_momento_compra = models.IntegerField() 
 
     def __str__(self):
         return f"{self.producto.nombre} x {self.cantidad}"
 
+# --- Modelo de Reseñas ---
 class Review(models.Model):
     producto = models.ForeignKey(Producto, on_delete=models.CASCADE, related_name="reviews")
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="reviews")
-    rating = models.PositiveSmallIntegerField(default=5) # Rating de 1 a 5
+    rating = models.PositiveSmallIntegerField(default=5) 
     comentario = models.TextField(blank=True, null=True)
-    
-    # --- AÑADIR ESTA LÍNEA ---
-    is_visible = models.BooleanField(default=True) # Por defecto, todas las reseñas son visibles
-    # --- FIN DE LA ADICIÓN ---
-
+    is_visible = models.BooleanField(default=True) 
     creado_en = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -136,6 +138,7 @@ class Review(models.Model):
     def __str__(self):
         return f'Review de {self.user.username} para {self.producto.nombre}'
 
+# --- Modelo de Blog/Noticias ---
 class Noticia(models.Model):
     titulo = models.CharField(max_length=200)
     contenido = models.TextField()
@@ -144,3 +147,21 @@ class Noticia(models.Model):
 
     def __str__(self):
         return self.titulo
+
+# --- Modelo de Notificaciones Globales ---
+class Notificacion(models.Model):
+    TIPO_CHOICES = (
+        ('info', 'Información (Azul)'),
+        ('alerta', 'Alerta/Problema (Rojo)'),
+        ('exito', 'Aviso/Evento (Verde)'),
+    )
+    
+    titulo = models.CharField(max_length=100)
+    mensaje = models.TextField()
+    tipo = models.CharField(max_length=20, choices=TIPO_CHOICES, default='info')
+    creado_en = models.DateTimeField(auto_now_add=True)
+
+    leido_por = models.ManyToManyField(User, related_name='notificaciones_leidas', blank=True)
+
+    def __str__(self):
+        return f"{self.titulo} ({self.tipo})"
