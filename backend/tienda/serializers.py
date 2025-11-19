@@ -5,7 +5,11 @@ from django.contrib.auth.models import User
 from .models import (
     Profile, Producto, Plan, Suscripcion, Carrito, CarritoItem, 
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
     Pedido, PedidoItem, Review, Noticia, Notificacion, ProductoImagen # <-- CONSOLIDADO
+=======
+    Pedido, PedidoItem, Review, Noticia, Notificacion, ProductoImagen # <-- Asegúrate de tener todos estos
+>>>>>>> Stashed changes
 =======
     Pedido, PedidoItem, Review, Noticia, Notificacion, ProductoImagen # <-- Asegúrate de tener todos estos
 >>>>>>> Stashed changes
@@ -136,6 +140,10 @@ class CarritoItemSerializer(serializers.ModelSerializer):
     imagen_producto = serializers.ImageField(source='producto.imagen', read_only=True)
     
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
+=======
+    # Este es el campo que causaba el error si no estaba en 'fields'
+>>>>>>> Stashed changes
 =======
     # Este es el campo que causaba el error si no estaba en 'fields'
 >>>>>>> Stashed changes
@@ -146,6 +154,10 @@ class CarritoItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = CarritoItem
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
+=======
+        # AÑADIDO 'stock_producto' AQUÍ ABAJO:
+>>>>>>> Stashed changes
 =======
         # AÑADIDO 'stock_producto' AQUÍ ABAJO:
 >>>>>>> Stashed changes

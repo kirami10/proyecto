@@ -32,7 +32,13 @@ class Producto(models.Model):
     imagen = models.ImageField(upload_to='productos/', null=True, blank=True)
     
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
     activo = models.BooleanField(default=True) 
+=======
+    # --- AÑADIDO: Campo para borrado lógico ---
+    activo = models.BooleanField(default=True) 
+    # --- FIN AÑADIDO ---
+>>>>>>> Stashed changes
 =======
     # --- AÑADIDO: Campo para borrado lógico ---
     activo = models.BooleanField(default=True) 

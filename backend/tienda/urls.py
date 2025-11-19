@@ -12,7 +12,11 @@ from .views import (
     vaciar_carrito,
     HistorialPedidosView,
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
     # Asegúrate de tener esta vista importada si la usas en tus rutas (MiPlan.js la necesita)
+=======
+    # Si tienes HistorialPlanesView importala aquí, si no, omítela
+>>>>>>> Stashed changes
 =======
     # Si tienes HistorialPlanesView importala aquí, si no, omítela
 >>>>>>> Stashed changes
@@ -22,7 +26,11 @@ from .views import (
     moderate_review_detail,
     NoticiaViewSet,
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
     NotificacionViewSet, # <-- ¡CONSOLIDADO!
+=======
+    NotificacionViewSet,
+>>>>>>> Stashed changes
 =======
     NotificacionViewSet,
 >>>>>>> Stashed changes
@@ -32,9 +40,15 @@ from .views_webpay import webpay_create, webpay_return
 router = DefaultRouter()
 
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 # --- CORRECCIÓN AQUÍ: Agregamos basename='producto' (Lo mantengo de la corrección anterior) ---
 router.register(r'productos', ProductoViewSet, basename='producto')
 # ------------------------------------------------------------------------------------------
+=======
+# --- CORRECCIÓN AQUÍ: Agregamos basename='producto' ---
+router.register(r'productos', ProductoViewSet, basename='producto')
+# -----------------------------------------------------
+>>>>>>> Stashed changes
 =======
 # --- CORRECCIÓN AQUÍ: Agregamos basename='producto' ---
 router.register(r'productos', ProductoViewSet, basename='producto')

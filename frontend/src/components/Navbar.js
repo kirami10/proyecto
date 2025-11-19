@@ -1,5 +1,9 @@
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 import React, { useState, useEffect, useRef, useCallback } from "react"; 
+=======
+import React, { useState, useEffect, useRef, useCallback } from "react"; // <-- AÑADIDO useCallback
+>>>>>>> Stashed changes
 =======
 import React, { useState, useEffect, useRef, useCallback } from "react"; // <-- AÑADIDO useCallback
 >>>>>>> Stashed changes
@@ -67,7 +71,11 @@ function Navbar({ token, onLogout, role }) {
   const isStaff = role === "contadora";
 
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
   // Cargar Notificaciones (Con useCallback para estabilidad en useEffect)
+=======
+  // --- Cargar Notificaciones (CORREGIDO con useCallback) ---
+>>>>>>> Stashed changes
 =======
   // --- Cargar Notificaciones (CORREGIDO con useCallback) ---
 >>>>>>> Stashed changes
@@ -83,7 +91,11 @@ function Navbar({ token, onLogout, role }) {
           }
       } catch (err) { console.error(err); }
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
   }, [token]);
+=======
+  }, [token]); // Se recrea solo si cambia el token
+>>>>>>> Stashed changes
 =======
   }, [token]); // Se recrea solo si cambia el token
 >>>>>>> Stashed changes
@@ -93,7 +105,11 @@ function Navbar({ token, onLogout, role }) {
       const interval = setInterval(fetchNotificaciones, 10000);
       return () => clearInterval(interval);
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
   }, [fetchNotificaciones]); // Dependencia fetchNotificaciones
+=======
+  }, [fetchNotificaciones]); // Dependencia correcta añadida
+>>>>>>> Stashed changes
 =======
   }, [fetchNotificaciones]); // Dependencia correcta añadida
 >>>>>>> Stashed changes
@@ -108,7 +124,12 @@ function Navbar({ token, onLogout, role }) {
                   headers: { Authorization: `Bearer ${token}` }
               });
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
               // Nota: Dejamos que el poll (cada 10s) actualice el estado a gris
+=======
+              // Nota: No actualizamos el estado local 'leida' aquí para que
+              // el usuario siga viéndolas resaltadas hasta la próxima recarga.
+>>>>>>> Stashed changes
 =======
               // Nota: No actualizamos el estado local 'leida' aquí para que
               // el usuario siga viéndolas resaltadas hasta la próxima recarga.

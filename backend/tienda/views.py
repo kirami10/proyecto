@@ -6,6 +6,7 @@ from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework_simplejwt.views import TokenObtainPairView
 from django.contrib.auth.models import User
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 from django.db.models import Avg, Sum 
 from rest_framework.decorators import api_view, permission_classes, action
 import json 
@@ -28,15 +29,30 @@ from .models import (
 )
 # --- Importación de Serializers ---
 >>>>>>> Stashed changes
+=======
+from django.db.models import Avg, Sum # Para ProductoSerializer
+from rest_framework.decorators import api_view, permission_classes, action
+import json
+from django.shortcuts import get_object_or_404
+# --- Importación de Modelos ---
+from .models import (
+    Profile, Producto, Plan, Suscripcion, Carrito, CarritoItem,
+    Pedido, PedidoItem, Review, Noticia, Notificacion, ProductoImagen
+)
+# --- Importación de Serializers ---
+>>>>>>> Stashed changes
 from .serializers import (
     RegisterSerializer, ProfileSerializer, MyTokenObtainPairSerializer, 
     ProductoSerializer, PlanSerializer, SuscripcionSerializer, 
     CarritoSerializer, CarritoItemSerializer,
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
     PedidoSerializer, ReviewSerializer, NoticiaSerializer, NotificacionSerializer # <-- Todos los serializers
 )
 from .utils import render_to_pdf
 =======
+=======
+>>>>>>> Stashed changes
     PedidoSerializer, ReviewSerializer, NoticiaSerializer, NotificacionSerializer
 )
 from .utils import render_to_pdf # Importación de PDF
