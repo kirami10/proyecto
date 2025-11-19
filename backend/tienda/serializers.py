@@ -6,7 +6,11 @@ from .models import (
     Profile, Producto, Plan, Suscripcion, Carrito, CarritoItem, 
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
     Pedido, PedidoItem, Review, Noticia, Notificacion, ProductoImagen # <-- CONSOLIDADO
+=======
+    Pedido, PedidoItem
+>>>>>>> parent of 281861c (se añadió el blog y sus respectivas funciones)
 =======
     Pedido, PedidoItem
 >>>>>>> parent of 281861c (se añadió el blog y sus respectivas funciones)
@@ -202,6 +206,7 @@ class ReviewSerializer(serializers.ModelSerializer):
         ]
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
         read_only_fields = ('user', 'producto')
 
 
@@ -225,6 +230,9 @@ class NotificacionSerializer(serializers.ModelSerializer):
         if request and request.user and request.user.is_authenticated:
             return obj.leido_por.filter(id=request.user.id).exists()
         return False
+=======
+        read_only_fields = ('user', 'producto')
+>>>>>>> parent of 281861c (se añadió el blog y sus respectivas funciones)
 =======
         read_only_fields = ('user', 'producto')
 >>>>>>> parent of 281861c (se añadió el blog y sus respectivas funciones)

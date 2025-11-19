@@ -17,7 +17,11 @@ from .models import (
     Profile, Producto, Plan, Suscripcion, Carrito, CarritoItem,
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
     Pedido, PedidoItem, Review, Noticia, Notificacion, ProductoImagen
+=======
+    Pedido, PedidoItem, Review # <-- AÑADIDO Review
+>>>>>>> parent of 281861c (se añadió el blog y sus respectivas funciones)
 =======
     Pedido, PedidoItem, Review # <-- AÑADIDO Review
 >>>>>>> parent of 281861c (se añadió el blog y sus respectivas funciones)
@@ -32,7 +36,11 @@ from .serializers import (
     CarritoSerializer, CarritoItemSerializer,
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
     PedidoSerializer, ReviewSerializer, NoticiaSerializer, NotificacionSerializer
+=======
+    PedidoSerializer, ReviewSerializer # <-- AÑADIDO ReviewSerializer
+>>>>>>> parent of 281861c (se añadió el blog y sus respectivas funciones)
 =======
     PedidoSerializer, ReviewSerializer # <-- AÑADIDO ReviewSerializer
 >>>>>>> parent of 281861c (se añadió el blog y sus respectivas funciones)
@@ -368,6 +376,7 @@ def moderate_review_detail(request, review_id):
     
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -406,6 +415,9 @@ class NoticiaViewSet(viewsets.ModelViewSet):
         else:
             permission_classes = [IsAdminUser]
         return [permission() for permission in permission_classes]
+=======
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+>>>>>>> parent of 281861c (se añadió el blog y sus respectivas funciones)
 =======
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 >>>>>>> parent of 281861c (se añadió el blog y sus respectivas funciones)

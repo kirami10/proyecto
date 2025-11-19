@@ -2,8 +2,12 @@ import React, { useState, useEffect, useRef, useCallback } from "react"; // <-- 
 import { Link } from "react-router-dom";
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 import { useCart } from "../context/CartContext"; 
 import API_URL from "../api"; // Necesario para la API de Notificaciones
+=======
+import { useCart } from "../context/CartContext"; // <-- Importamos el hook del carrito
+>>>>>>> parent of 281861c (se añadió el blog y sus respectivas funciones)
 =======
 import { useCart } from "../context/CartContext"; // <-- Importamos el hook del carrito
 >>>>>>> parent of 281861c (se añadió el blog y sus respectivas funciones)
@@ -56,6 +60,7 @@ const formatDateTime = (isoString) => {
 function Navbar({ token, onLogout, role }) {
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
   const { itemCount } = useCart();
   const [notificaciones, setNotificaciones] = useState([]);
   
@@ -68,6 +73,9 @@ function Navbar({ token, onLogout, role }) {
   const notifRef = useRef(null);
   const userMenuRef = useRef(null);
   const adminMenuRef = useRef(null);
+=======
+  const { itemCount } = useCart(); // <-- Obtenemos el contador de items
+>>>>>>> parent of 281861c (se añadió el blog y sus respectivas funciones)
 =======
   const { itemCount } = useCart(); // <-- Obtenemos el contador de items
 >>>>>>> parent of 281861c (se añadió el blog y sus respectivas funciones)
@@ -238,6 +246,7 @@ function Navbar({ token, onLogout, role }) {
 
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
             {/* --- CAMPANA DE NOTIFICACIONES --- */}
             <div className="relative" ref={notifRef}>
                 <button 
@@ -285,6 +294,8 @@ function Navbar({ token, onLogout, role }) {
 =======
 =======
 >>>>>>> parent of 281861c (se añadió el blog y sus respectivas funciones)
+=======
+>>>>>>> parent of 281861c (se añadió el blog y sus respectivas funciones)
             {/* --- AÑADIDO: Enlace a Historial de Pedidos --- */}
             <Link
               to="/historial"
@@ -309,6 +320,9 @@ function Navbar({ token, onLogout, role }) {
 
             {/* --- ÍCONO DE CARRITO (NUEVO) --- */}
 <<<<<<< HEAD
+<<<<<<< HEAD
+>>>>>>> parent of 281861c (se añadió el blog y sus respectivas funciones)
+=======
 >>>>>>> parent of 281861c (se añadió el blog y sus respectivas funciones)
 =======
 >>>>>>> parent of 281861c (se añadió el blog y sus respectivas funciones)
