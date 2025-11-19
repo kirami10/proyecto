@@ -1,4 +1,8 @@
+<<<<<<< Updated upstream
 import React, { useState, useEffect, useRef, useCallback } from "react"; 
+=======
+import React, { useState, useEffect, useRef, useCallback } from "react"; // <-- AÑADIDO useCallback
+>>>>>>> Stashed changes
 import { Link } from "react-router-dom";
 import { useCart } from "../context/CartContext"; 
 import API_URL from "../api"; // Necesario para la API de Notificaciones
@@ -62,7 +66,11 @@ function Navbar({ token, onLogout, role }) {
   const isAdmin = role === "admin";
   const isStaff = role === "contadora";
 
+<<<<<<< Updated upstream
   // Cargar Notificaciones (Con useCallback para estabilidad en useEffect)
+=======
+  // --- Cargar Notificaciones (CORREGIDO con useCallback) ---
+>>>>>>> Stashed changes
   const fetchNotificaciones = useCallback(async () => {
       if (!token) return;
       try {
@@ -74,13 +82,21 @@ function Navbar({ token, onLogout, role }) {
               if (Array.isArray(data)) setNotificaciones(data);
           }
       } catch (err) { console.error(err); }
+<<<<<<< Updated upstream
   }, [token]);
+=======
+  }, [token]); // Se recrea solo si cambia el token
+>>>>>>> Stashed changes
 
   useEffect(() => {
       fetchNotificaciones();
       const interval = setInterval(fetchNotificaciones, 10000);
       return () => clearInterval(interval);
+<<<<<<< Updated upstream
   }, [fetchNotificaciones]); // Dependencia fetchNotificaciones
+=======
+  }, [fetchNotificaciones]); // Dependencia correcta añadida
+>>>>>>> Stashed changes
 
   const unreadCount = notificaciones.filter(n => !n.leida).length;
 
@@ -91,7 +107,12 @@ function Navbar({ token, onLogout, role }) {
                   method: 'POST',
                   headers: { Authorization: `Bearer ${token}` }
               });
+<<<<<<< Updated upstream
               // Nota: Dejamos que el poll (cada 10s) actualice el estado a gris
+=======
+              // Nota: No actualizamos el estado local 'leida' aquí para que
+              // el usuario siga viéndolas resaltadas hasta la próxima recarga.
+>>>>>>> Stashed changes
           } catch (err) { console.error(err); }
       }
       setShowNotif(!showNotif);

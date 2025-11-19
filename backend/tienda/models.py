@@ -31,7 +31,13 @@ class Producto(models.Model):
     stock = models.IntegerField(default=0)
     imagen = models.ImageField(upload_to='productos/', null=True, blank=True)
     
+<<<<<<< Updated upstream
     activo = models.BooleanField(default=True) 
+=======
+    # --- AÑADIDO: Campo para borrado lógico ---
+    activo = models.BooleanField(default=True) 
+    # --- FIN AÑADIDO ---
+>>>>>>> Stashed changes
 
     creado_en = models.DateTimeField(auto_now_add=True)
     actualizado_en = models.DateTimeField(auto_now=True)
@@ -165,3 +171,10 @@ class Notificacion(models.Model):
 
     def __str__(self):
         return f"{self.titulo} ({self.tipo})"
+
+class ProductoImagen(models.Model):
+    producto = models.ForeignKey(Producto, on_delete=models.CASCADE, related_name='imagenes')
+    imagen = models.ImageField(upload_to='productos/galeria/')
+
+    def __str__(self):
+        return f"Imagen de {self.producto.nombre}"

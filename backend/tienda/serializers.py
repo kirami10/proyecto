@@ -4,7 +4,11 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth.models import User
 from .models import (
     Profile, Producto, Plan, Suscripcion, Carrito, CarritoItem, 
+<<<<<<< Updated upstream
     Pedido, PedidoItem, Review, Noticia, Notificacion, ProductoImagen # <-- CONSOLIDADO
+=======
+    Pedido, PedidoItem, Review, Noticia, Notificacion, ProductoImagen # <-- Asegúrate de tener todos estos
+>>>>>>> Stashed changes
 )
 
 # --- Serializador para Token JWT (con roles) ---
@@ -131,12 +135,20 @@ class CarritoItemSerializer(serializers.ModelSerializer):
     precio_producto = serializers.IntegerField(source='producto.precio', read_only=True)
     imagen_producto = serializers.ImageField(source='producto.imagen', read_only=True)
     
+<<<<<<< Updated upstream
+=======
+    # Este es el campo que causaba el error si no estaba en 'fields'
+>>>>>>> Stashed changes
     stock_producto = serializers.IntegerField(source='producto.stock', read_only=True)
     
     subtotal = serializers.IntegerField(read_only=True)
 
     class Meta:
         model = CarritoItem
+<<<<<<< Updated upstream
+=======
+        # AÑADIDO 'stock_producto' AQUÍ ABAJO:
+>>>>>>> Stashed changes
         fields = ['id', 'producto', 'nombre_producto', 'precio_producto', 'imagen_producto', 'stock_producto', 'cantidad', 'subtotal']
 
 class CarritoSerializer(serializers.ModelSerializer):
