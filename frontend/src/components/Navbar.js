@@ -1,15 +1,11 @@
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-import React, { useState, useEffect, useRef, useCallback } from "react"; 
-=======
 import React, { useState, useEffect, useRef, useCallback } from "react"; // <-- AÑADIDO useCallback
->>>>>>> Stashed changes
-=======
-import React, { useState, useEffect, useRef, useCallback } from "react"; // <-- AÑADIDO useCallback
->>>>>>> Stashed changes
 import { Link } from "react-router-dom";
+<<<<<<< HEAD
 import { useCart } from "../context/CartContext"; 
 import API_URL from "../api"; // Necesario para la API de Notificaciones
+=======
+import { useCart } from "../context/CartContext"; // <-- Importamos el hook del carrito
+>>>>>>> parent of 281861c (se añadió el blog y sus respectivas funciones)
 
 // --- ICONOS ---
 const DumbbellIcon = () => (
@@ -54,6 +50,7 @@ const formatDateTime = (isoString) => {
 };
 
 function Navbar({ token, onLogout, role }) {
+<<<<<<< HEAD
   const { itemCount } = useCart();
   const [notificaciones, setNotificaciones] = useState([]);
   
@@ -66,19 +63,12 @@ function Navbar({ token, onLogout, role }) {
   const notifRef = useRef(null);
   const userMenuRef = useRef(null);
   const adminMenuRef = useRef(null);
+=======
+  const { itemCount } = useCart(); // <-- Obtenemos el contador de items
+>>>>>>> parent of 281861c (se añadió el blog y sus respectivas funciones)
   
   const isAdmin = role === "admin";
   const isStaff = role === "contadora";
-
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-  // Cargar Notificaciones (Con useCallback para estabilidad en useEffect)
-=======
-  // --- Cargar Notificaciones (CORREGIDO con useCallback) ---
->>>>>>> Stashed changes
-=======
-  // --- Cargar Notificaciones (CORREGIDO con useCallback) ---
->>>>>>> Stashed changes
   const fetchNotificaciones = useCallback(async () => {
       if (!token) return;
       try {
@@ -90,29 +80,14 @@ function Navbar({ token, onLogout, role }) {
               if (Array.isArray(data)) setNotificaciones(data);
           }
       } catch (err) { console.error(err); }
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
+
   }, [token]);
-=======
-  }, [token]); // Se recrea solo si cambia el token
->>>>>>> Stashed changes
-=======
-  }, [token]); // Se recrea solo si cambia el token
->>>>>>> Stashed changes
 
   useEffect(() => {
       fetchNotificaciones();
       const interval = setInterval(fetchNotificaciones, 10000);
       return () => clearInterval(interval);
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
   }, [fetchNotificaciones]); // Dependencia fetchNotificaciones
-=======
-  }, [fetchNotificaciones]); // Dependencia correcta añadida
->>>>>>> Stashed changes
-=======
-  }, [fetchNotificaciones]); // Dependencia correcta añadida
->>>>>>> Stashed changes
 
   const unreadCount = notificaciones.filter(n => !n.leida).length;
 
@@ -123,17 +98,13 @@ function Navbar({ token, onLogout, role }) {
                   method: 'POST',
                   headers: { Authorization: `Bearer ${token}` }
               });
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
               // Nota: Dejamos que el poll (cada 10s) actualice el estado a gris
-=======
               // Nota: No actualizamos el estado local 'leida' aquí para que
               // el usuario siga viéndolas resaltadas hasta la próxima recarga.
->>>>>>> Stashed changes
-=======
+
               // Nota: No actualizamos el estado local 'leida' aquí para que
               // el usuario siga viéndolas resaltadas hasta la próxima recarga.
->>>>>>> Stashed changes
+
           } catch (err) { console.error(err); }
       }
       setShowNotif(!showNotif);
@@ -174,11 +145,63 @@ function Navbar({ token, onLogout, role }) {
       {/* --- 3. DERECHA: ACCIONES --- */}
       <div className="flex items-center gap-3 sm:gap-4">
         
+<<<<<<< HEAD
         <div className="md:hidden flex gap-3">
             <Link to="/" className="text-neutral-300 hover:text-white">Tienda</Link>
             <Link to="/planes" className="text-neutral-300 hover:text-white">Planes</Link>
         </div>
 
+=======
+        {/* --- LINKS PÚBLICOS (Visibles para todos) --- */}
+        <Link
+          to="/"
+          className="text-neutral-300 font-medium px-3 py-2 rounded-lg transition-all duration-200 hover:bg-neutral-800 hover:text-white"
+        >
+          Tienda
+        </Link>
+        <Link
+          to="/planes"
+          className="text-neutral-300 font-medium px-3 py-2 rounded-lg transition-all duration-200 hover:bg-neutral-800 hover:text-white"
+        >
+          Planes
+        </Link>
+
+        {/* --- LINKS DE ADMIN/STAFF --- */}
+        {token && isAdmin && (
+          <Link
+            to="/gestion-usuarios"
+            className="px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-all duration-300 font-semibold flex items-center gap-2 shadow-md hover:shadow-lg"
+            title="Gestión de Usuarios"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20"><path d="M13 7a3 3 0 11-6 0 3 3 0 016 0z" /><path fillRule="evenodd" d="M5 14a7 7 0 1110 0H5z" /></svg>
+            <span className="hidden lg:inline">Usuarios</span>
+          </Link>
+        )}
+        {token && (isAdmin || isStaff) && (
+          <Link
+            to="/publicar-producto"
+            className="px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-all duration-300 font-semibold flex items-center gap-2 shadow-md hover:shadow-lg"
+            title="Gestión de Productos"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" /></svg>
+            <span className="hidden lg:inline">Producto</span>
+          </Link>
+        )}
+        {token && (isAdmin || isStaff) && (
+          <Link
+            to="/gestion-planes"
+            className="px-3 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg transition-all duration-300 font-semibold flex items-center gap-2 shadow-md hover:shadow-lg"
+            title="Gestión de Planes"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20"><path d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h10a2 2 0 002-2V5a2 2 0 00-2-2H5z" /><path fillRule="evenodd" d="M3 11a2 2 0 012-2h10a2 2 0 012 2v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4z" clipRule="evenodd" /></svg>
+            <span className="hidden lg:inline">Planes</span>
+          </Link>
+        )}
+        {/* --- FIN LINKS ADMIN/STAFF --- */}
+
+
+        {/* --- LINKS DE AUTENTICACIÓN --- */}
+>>>>>>> parent of 281861c (se añadió el blog y sus respectivas funciones)
         {token ? (
           <>
             {/* --- MENÚ ADMIN --- */}
@@ -205,6 +228,7 @@ function Navbar({ token, onLogout, role }) {
                 </div>
             )}
 
+<<<<<<< HEAD
             {/* --- CAMPANA DE NOTIFICACIONES --- */}
             <div className="relative" ref={notifRef}>
                 <button 
@@ -249,6 +273,31 @@ function Navbar({ token, onLogout, role }) {
             </div>
 
             {/* --- CARRITO --- */}
+=======
+            {/* --- AÑADIDO: Enlace a Historial de Pedidos --- */}
+            <Link
+              to="/historial"
+              className="text-neutral-300 font-medium px-3 py-2 rounded-lg transition-all duration-200 hover:bg-neutral-800 hover:text-white"
+            >
+              Mis Pedidos
+            </Link>
+            
+            <Link
+              to="/profile"
+              className="text-neutral-300 font-medium px-3 py-2 rounded-lg transition-all duration-200 hover:bg-neutral-800 hover:text-white"
+            >
+              Perfil
+            </Link>
+            
+            <button
+              onClick={onLogout}
+              className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-all duration-300 font-semibold shadow-md hover:shadow-lg"
+            >
+              Cerrar sesión
+            </button>
+
+            {/* --- ÍCONO DE CARRITO (NUEVO) --- */}
+>>>>>>> parent of 281861c (se añadió el blog y sus respectivas funciones)
             <Link to="/carrito" className="relative text-neutral-300 p-2 rounded-full transition-all hover:bg-neutral-800 hover:text-white">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />

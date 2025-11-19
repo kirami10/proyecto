@@ -4,15 +4,11 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth.models import User
 from .models import (
     Profile, Producto, Plan, Suscripcion, Carrito, CarritoItem, 
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
+<<<<<<< HEAD
     Pedido, PedidoItem, Review, Noticia, Notificacion, ProductoImagen # <-- CONSOLIDADO
 =======
-    Pedido, PedidoItem, Review, Noticia, Notificacion, ProductoImagen # <-- Asegúrate de tener todos estos
->>>>>>> Stashed changes
-=======
-    Pedido, PedidoItem, Review, Noticia, Notificacion, ProductoImagen # <-- Asegúrate de tener todos estos
->>>>>>> Stashed changes
+    Pedido, PedidoItem
+>>>>>>> parent of 281861c (se añadió el blog y sus respectivas funciones)
 )
 
 # --- Serializador para Token JWT (con roles) ---
@@ -139,28 +135,22 @@ class CarritoItemSerializer(serializers.ModelSerializer):
     precio_producto = serializers.IntegerField(source='producto.precio', read_only=True)
     imagen_producto = serializers.ImageField(source='producto.imagen', read_only=True)
     
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-=======
+
     # Este es el campo que causaba el error si no estaba en 'fields'
->>>>>>> Stashed changes
-=======
+
     # Este es el campo que causaba el error si no estaba en 'fields'
->>>>>>> Stashed changes
+
     stock_producto = serializers.IntegerField(source='producto.stock', read_only=True)
     
     subtotal = serializers.IntegerField(read_only=True)
 
     class Meta:
         model = CarritoItem
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-=======
+
         # AÑADIDO 'stock_producto' AQUÍ ABAJO:
->>>>>>> Stashed changes
-=======
+
         # AÑADIDO 'stock_producto' AQUÍ ABAJO:
->>>>>>> Stashed changes
+
         fields = ['id', 'producto', 'nombre_producto', 'precio_producto', 'imagen_producto', 'stock_producto', 'cantidad', 'subtotal']
 
 class CarritoSerializer(serializers.ModelSerializer):
@@ -206,6 +196,7 @@ class ReviewSerializer(serializers.ModelSerializer):
             'rating', 'comentario', 'creado_en', 
             'is_visible' 
         ]
+<<<<<<< HEAD
         read_only_fields = ('user', 'producto')
 
 
@@ -229,3 +220,6 @@ class NotificacionSerializer(serializers.ModelSerializer):
         if request and request.user and request.user.is_authenticated:
             return obj.leido_por.filter(id=request.user.id).exists()
         return False
+=======
+        read_only_fields = ('user', 'producto')
+>>>>>>> parent of 281861c (se añadió el blog y sus respectivas funciones)

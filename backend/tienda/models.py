@@ -30,20 +30,16 @@ class Producto(models.Model):
     precio = models.IntegerField()
     stock = models.IntegerField(default=0)
     imagen = models.ImageField(upload_to='productos/', null=True, blank=True)
-    
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
     activo = models.BooleanField(default=True) 
-=======
+
     # --- AÑADIDO: Campo para borrado lógico ---
     activo = models.BooleanField(default=True) 
     # --- FIN AÑADIDO ---
->>>>>>> Stashed changes
-=======
+
     # --- AÑADIDO: Campo para borrado lógico ---
     activo = models.BooleanField(default=True) 
     # --- FIN AÑADIDO ---
->>>>>>> Stashed changes
+
 
     creado_en = models.DateTimeField(auto_now_add=True)
     actualizado_en = models.DateTimeField(auto_now=True)
@@ -148,6 +144,7 @@ class Review(models.Model):
         ordering = ['-creado_en']
 
     def __str__(self):
+<<<<<<< HEAD
         return f'Review de {self.user.username} para {self.producto.nombre}'
 
 # --- Modelo de Blog/Noticias ---
@@ -184,3 +181,6 @@ class ProductoImagen(models.Model):
 
     def __str__(self):
         return f"Imagen de {self.producto.nombre}"
+=======
+        return f'Review de {self.user.username} para {self.producto.nombre}'
+>>>>>>> parent of 281861c (se añadió el blog y sus respectivas funciones)

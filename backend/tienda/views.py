@@ -1,3 +1,5 @@
+# Pega esto AL INICIO de backend/tienda/views.py, antes de las clases
+
 from rest_framework import viewsets, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -5,58 +7,32 @@ from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnl
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework_simplejwt.views import TokenObtainPairView
 from django.contrib.auth.models import User
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
 from django.db.models import Avg, Sum 
 from rest_framework.decorators import api_view, permission_classes, action
 import json 
 from django.shortcuts import get_object_or_404
-# --- IMPORTACIÓN DE MODELOS (LISTA CONSOLIDADA) ---
-from .models import (
-    Profile, Producto, Plan, Suscripcion, Carrito, CarritoItem,
-    Pedido, PedidoItem, Review, Noticia, Notificacion, ProductoImagen # <-- Todos los modelos
-)
-# --- IMPORTACIÓN DE SERIALIZERS (LISTA CONSOLIDADA) ---
-=======
-from django.db.models import Avg, Sum # Para ProductoSerializer
-from rest_framework.decorators import api_view, permission_classes, action
-import json
-from django.shortcuts import get_object_or_404
+
 # --- Importación de Modelos ---
 from .models import (
     Profile, Producto, Plan, Suscripcion, Carrito, CarritoItem,
+<<<<<<< HEAD
     Pedido, PedidoItem, Review, Noticia, Notificacion, ProductoImagen
-)
-# --- Importación de Serializers ---
->>>>>>> Stashed changes
 =======
-from django.db.models import Avg, Sum # Para ProductoSerializer
-from rest_framework.decorators import api_view, permission_classes, action
-import json
-from django.shortcuts import get_object_or_404
-# --- Importación de Modelos ---
-from .models import (
-    Profile, Producto, Plan, Suscripcion, Carrito, CarritoItem,
-    Pedido, PedidoItem, Review, Noticia, Notificacion, ProductoImagen
+    Pedido, PedidoItem, Review # <-- AÑADIDO Review
+>>>>>>> parent of 281861c (se añadió el blog y sus respectivas funciones)
 )
 # --- Importación de Serializers ---
->>>>>>> Stashed changes
 from .serializers import (
     RegisterSerializer, ProfileSerializer, MyTokenObtainPairSerializer, 
     ProductoSerializer, PlanSerializer, SuscripcionSerializer, 
     CarritoSerializer, CarritoItemSerializer,
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-    PedidoSerializer, ReviewSerializer, NoticiaSerializer, NotificacionSerializer # <-- Todos los serializers
+<<<<<<< HEAD
+    PedidoSerializer, ReviewSerializer, NoticiaSerializer, NotificacionSerializer
+=======
+    PedidoSerializer, ReviewSerializer # <-- AÑADIDO ReviewSerializer
+>>>>>>> parent of 281861c (se añadió el blog y sus respectivas funciones)
 )
 from .utils import render_to_pdf
-=======
-=======
->>>>>>> Stashed changes
-    PedidoSerializer, ReviewSerializer, NoticiaSerializer, NotificacionSerializer
-)
-from .utils import render_to_pdf # Importación de PDF
->>>>>>> Stashed changes
 
 # --- VISTA DE AUTENTICACIÓN ---
 class MyTokenObtainPairView(TokenObtainPairView):
@@ -171,12 +147,9 @@ class ProductoViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         if self.request.user.is_staff:
-            # Admin ve todos los productos, incluyendo inactivos
             return Producto.objects.all()
-        # Cliente/Público solo ve productos activos
         return Producto.objects.filter(activo=True)
 
-    # Lógica para la creación (manejo de multi-imagen)
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -189,7 +162,6 @@ class ProductoViewSet(viewsets.ModelViewSet):
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
-    # Lógica para la actualización (manejo de multi-imagen y borrado)
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', False)
         instance = self.get_object()
@@ -237,7 +209,7 @@ class ProductoViewSet(viewsets.ModelViewSet):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-# --- VISTAS DE CARRITO (Sin cambios) ---
+# --- VISTAS DE CARRITO ---
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def obtener_carrito(request):
@@ -340,8 +312,9 @@ def descargar_boleta(request, pedido_id):
     context = {
         'pedido': pedido,
     }
+    # Aseguramos que los subtotales se calculen para el template PDF
     for item in context['pedido'].items.all():
-        item.subtotal = item.cantidad * item.precio_al_momento_compra
+        item.subtotal = item.cantidad * item.precio_al_momento_compra 
     pdf = render_to_pdf('tienda/boleta.html', context)
     return pdf
 
@@ -385,6 +358,7 @@ def moderate_review_detail(request, review_id):
         serializer.save()
         return Response(serializer.data)
     
+<<<<<<< HEAD
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -400,12 +374,12 @@ class NotificacionViewSet(viewsets.ModelViewSet):
         return [IsAdminUser()]
 
     def list(self, request, *args, **kwargs):
-        # Aseguramos que solo los usuarios logueados obtengan la lista
         if not request.user.is_authenticated:
             return Response({'detail': 'No autenticado'}, status=status.HTTP_401_UNAUTHORIZED)
         return super().list(request, *args, **kwargs)
 
-@action(detail=False, methods=['post'], permission_classes=[IsAuthenticated])
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def marcar_todas_leidas(request):
     user = request.user
     notificaciones_no_leidas = Notificacion.objects.exclude(leido_por=user)
@@ -414,19 +388,15 @@ def marcar_todas_leidas(request):
     return Response({"status": "ok", "message": "Todas marcadas como leídas"})
 
 class NoticiaViewSet(viewsets.ModelViewSet):
-    """
-    Vista para noticias.
-    - Cualquiera puede ver (list/retrieve).
-    - Solo el Admin puede crear/editar/borrar.
-    """
     queryset = Noticia.objects.all().order_by('-creado_en')
     serializer_class = NoticiaSerializer
 
     def get_permissions(self):
         if self.action in ['list', 'retrieve']:
-            # GET: Permitido a todos (Público)
             permission_classes = [AllowAny]
         else:
-            # POST, PUT, DELETE: Solo Admin
             permission_classes = [IsAdminUser]
         return [permission() for permission in permission_classes]
+=======
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+>>>>>>> parent of 281861c (se añadió el blog y sus respectivas funciones)

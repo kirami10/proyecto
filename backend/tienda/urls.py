@@ -11,54 +11,33 @@ from .views import (
     obtener_carrito, agregar_al_carrito, actualizar_item_carrito, eliminar_item_carrito,
     vaciar_carrito,
     HistorialPedidosView,
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
     # Asegúrate de tener esta vista importada si la usas en tus rutas (MiPlan.js la necesita)
-=======
     # Si tienes HistorialPlanesView importala aquí, si no, omítela
->>>>>>> Stashed changes
-=======
     # Si tienes HistorialPlanesView importala aquí, si no, omítela
->>>>>>> Stashed changes
     HistorialPlanesView, 
     descargar_boleta,
     product_reviews,
+<<<<<<< HEAD
     moderate_review_detail,
     NoticiaViewSet,
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-    NotificacionViewSet, # <-- ¡CONSOLIDADO!
-=======
     NotificacionViewSet,
->>>>>>> Stashed changes
 =======
-    NotificacionViewSet,
->>>>>>> Stashed changes
+    moderate_review_detail  # <--- AÑADIDO
+>>>>>>> parent of 281861c (se añadió el blog y sus respectivas funciones)
 )
 from .views_webpay import webpay_create, webpay_return 
 
 router = DefaultRouter()
 
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
 # --- CORRECCIÓN AQUÍ: Agregamos basename='producto' (Lo mantengo de la corrección anterior) ---
 router.register(r'productos', ProductoViewSet, basename='producto')
-# ------------------------------------------------------------------------------------------
-=======
-# --- CORRECCIÓN AQUÍ: Agregamos basename='producto' ---
-router.register(r'productos', ProductoViewSet, basename='producto')
-# -----------------------------------------------------
->>>>>>> Stashed changes
-=======
-# --- CORRECCIÓN AQUÍ: Agregamos basename='producto' ---
-router.register(r'productos', ProductoViewSet, basename='producto')
-# -----------------------------------------------------
->>>>>>> Stashed changes
-
 router.register(r'usuarios', UserAdminViewSet)
 router.register(r'planes', PlanViewSet)
+<<<<<<< HEAD
 router.register(r'noticias', NoticiaViewSet)
 router.register(r'notificaciones', NotificacionViewSet) # <-- ¡CONSOLIDADO!
+=======
+>>>>>>> parent of 281861c (se añadió el blog y sus respectivas funciones)
 
 urlpatterns = [
     path('token/', MyTokenObtainPairView.as_view(), name='token_obtain_pair'),
